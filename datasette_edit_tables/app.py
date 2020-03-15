@@ -123,10 +123,26 @@ def get_classes(datasette):
                 )
             )
 
+        async def delete_table(self, database, table):
+            def delete_table(conn):
+                db = sqlite_utils.Database(conn)
+                db[table].disable_fts()
+                db[table].drop()
+                db.vacuum()
+
+            await datasette.databases[database.name].execute_write_fn(
+                delete_table, block=True
+            )
+
+            return RedirectResponse(
+                "/{}".format(quote_plus(database.name)), status_code=302,
+            )
+
         async def post(self, request):
             table = request.path_params["table"]
             databases = self.get_databases()
             database_name = request.path_params["database"]
+            formdata = await request.form()
             try:
                 database = [db for db in databases if db.name == database_name][0]
             except IndexError:
@@ -135,18 +151,9 @@ def get_classes(datasette):
             if not await database.table_exists(table):
                 return HTMLResponse("Table not found", status_code=404)
 
-            def delete_table(conn):
-                db = sqlite_utils.Database(conn)
-                db[table].disable_fts()
-                db[table].drop()
-                db.vacuum()
+            if "delete_table" in formdata:
+                return await self.delete_table(database, table)
 
-            await datasette.databases[database_name].execute_write_fn(
-                delete_table, block=True
-            )
-
-            return RedirectResponse(
-                "/{}".format(quote_plus(database_name)), status_code=302,
-            )
+            return HTMLResponse("Unknown operation", status_code=400)
 
     return EditTablesIndex, EditTablesDatabase, EditTablesTable

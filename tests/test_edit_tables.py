@@ -33,6 +33,22 @@ async def test_csrf_required(db_path):
 
 
 @pytest.mark.asyncio
+async def test_post_without_operation_errror(db_path):
+    app = Datasette([db_path]).app()
+    async with httpx.AsyncClient(app=app) as client:
+        # Get a csrftoken
+        csrftoken = (
+            await client.get("http://localhost/-/edit-tables/data/creatures")
+        ).cookies["csrftoken"]
+        response = await client.post(
+            "http://localhost/-/edit-tables/data/creatures",
+            data={"csrftoken": csrftoken},
+            allow_redirects=False,
+        )
+    assert 400 == response.status_code
+
+
+@pytest.mark.asyncio
 async def test_delete_table(db_path):
     app = Datasette([db_path]).app()
     db = sqlite_utils.Database(db_path)
