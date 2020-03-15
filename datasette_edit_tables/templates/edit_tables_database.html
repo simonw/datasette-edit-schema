@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Edit tables in {{ database.name }}.db{% endblock %}
+
+{% block extra_head %}
+
+{% endblock %}
+
+{% block nav %}
+    <p class="crumbs">
+        <a href="/">home</a>
+    </p>
+    {{ super() }}
+{% endblock %}
+
+{% block content %}
+<h1>Edit tables in {{ database.name }}.db</h1>
+
+{% for table in tables %}
+    <h2><a href="/-/edit-tables/{{ database.name|quote_plus }}/{{ table.name|quote_plus }}">{{ table.name }}</a></h2>
+    <p>{{ table.columns }}</p>
+{% endfor %}
+
+{% endblock %}

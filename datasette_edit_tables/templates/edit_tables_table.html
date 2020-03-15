@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Edit table {{ table }} in {{ database.name }}{% endblock %}
+
+{% block extra_head %}
+
+{% endblock %}
+
+{% block nav %}
+    <p class="crumbs">
+        <a href="/">home</a>
+    </p>
+    {{ super() }}
+{% endblock %}
+
+{% block content %}
+<h1>Edit table {{ table }} in {{ database.name }}</h1>
+
+<h2>Columns</h2>
+<ul>
+{% for column in columns %}
+    <li>{{ column.name }} - {{ column.type.__name__ }}</li>
+{% endfor %}
+</ul>
+
+<form action="/-/edit-tables/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
+    <input type="hidden" name="csrftoken" value="{{ csrftoken }}">
+    <input type="hidden" name="delete_table" value="1">
+    <input type="submit" value="Delete this table">
+</form>
+
+{% endblock %}

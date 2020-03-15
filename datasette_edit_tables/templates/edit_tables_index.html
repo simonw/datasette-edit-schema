@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Edit tables{% endblock %}
+
+{% block extra_head %}
+
+{% endblock %}
+
+{% block nav %}
+    <p class="crumbs">
+        <a href="/">home</a>
+    </p>
+    {{ super() }}
+{% endblock %}
+
+{% block content %}
+<h1>Edit tables</h1>
+
+{% if databases %}
+    <p>Select a database to edit:</p>
+
+    <ul>
+    {% for database in databases %}
+        <li><a href="/-/edit-tables/{{ database.name|quote_plus }}">{{ database.name }}</a></li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>You do not have any writable database files attached.</p>
+{% endif %}
+
+{% endblock %}
