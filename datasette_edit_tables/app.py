@@ -124,18 +124,35 @@ def get_classes(datasette):
             )
 
         async def delete_table(self, database, table):
-            def delete_table(conn):
+            def do_delete_table(conn):
                 db = sqlite_utils.Database(conn)
                 db[table].disable_fts()
                 db[table].drop()
                 db.vacuum()
 
             await datasette.databases[database.name].execute_write_fn(
-                delete_table, block=True
+                do_delete_table, block=True
             )
 
             return RedirectResponse(
                 "/{}".format(quote_plus(database.name)), status_code=302,
+            )
+
+        async def add_column(self, database, table, formdata):
+            name = formdata["name"]
+            type = formdata["type"]
+
+            def do_add_column(conn):
+                db = sqlite_utils.Database(conn)
+                db[table].add_column(name, type)
+
+            await datasette.databases[database.name].execute_write_fn(
+                do_add_column, block=True
+            )
+
+            return RedirectResponse(
+                "/{}/{}".format(quote_plus(database.name), quote_plus(table)),
+                status_code=302,
             )
 
         async def post(self, request):
@@ -153,6 +170,9 @@ def get_classes(datasette):
 
             if "delete_table" in formdata:
                 return await self.delete_table(database, table)
+
+            if "add_column" in formdata:
+                return await self.add_column(database, table, formdata)
 
             return HTMLResponse("Unknown operation", status_code=400)
 

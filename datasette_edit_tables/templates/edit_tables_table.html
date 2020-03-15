@@ -23,6 +23,23 @@
 {% endfor %}
 </ul>
 
+<h2>Add a column</h2>
+
+<form action="/-/edit-tables/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
+    <input type="hidden" name="csrftoken" value="{{ csrftoken }}">
+    <input type="hidden" name="add_column" value="1">
+    <p><label>Name <input type="text" name="name"></label>
+    <label>Type <select name="type">
+        <option value="text">text</option>
+        <option value="integer">integer number</option>
+        <option value="float">floating point number</option>
+        <option value="blob">binary data</option>
+    </select></label></p>
+    <input type="submit" value="Add column">
+</form>
+
+<h2>Delete table</h2>
+
 <form action="/-/edit-tables/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
     <input type="hidden" name="csrftoken" value="{{ csrftoken }}">
     <input type="hidden" name="delete_table" value="1">
