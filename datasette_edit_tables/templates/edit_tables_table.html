@@ -3,7 +3,16 @@
 {% block title %}Edit table {{ table }} in {{ database.name }}{% endblock %}
 
 {% block extra_head %}
-
+<style>
+select {
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    padding: 9px 4px;
+    display: inline-block;
+    font-size: 1em;
+    font-family: Helvetica, sans-serif;
+}
+</style>
 {% endblock %}
 
 {% block nav %}
@@ -19,17 +28,17 @@
 <h2>Columns</h2>
 <ul>
 {% for column in columns %}
-    <li>{{ column.name }} - {{ column.type.__name__ }}</li>
+    <li>{{ column.name }} -  {{ column.type.__name__ }}</li>
 {% endfor %}
 </ul>
 
 <h2>Add a column</h2>
 
 <form action="/-/edit-tables/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
-    <input type="hidden" name="csrftoken" value="{{ csrftoken }}">
+    <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
     <input type="hidden" name="add_column" value="1">
     <p><label>Name <input type="text" name="name"></label>
-    <label>Type <select name="type">
+    <label>Column type <select name="type">
         <option value="text">text</option>
         <option value="integer">integer number</option>
         <option value="float">floating point number</option>
@@ -41,7 +50,7 @@
 <h2>Delete table</h2>
 
 <form action="/-/edit-tables/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
-    <input type="hidden" name="csrftoken" value="{{ csrftoken }}">
+    <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
     <input type="hidden" name="delete_table" value="1">
     <input type="submit" value="Delete this table">
 </form>

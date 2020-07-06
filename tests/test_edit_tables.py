@@ -24,10 +24,13 @@ def db_path(tmpdir):
 
 @pytest.mark.asyncio
 async def test_csrf_required(db_path):
-    app = Datasette([db_path]).app()
-    async with httpx.AsyncClient(app=app) as client:
+    ds = Datasette([db_path])
+    async with httpx.AsyncClient(app=ds.app()) as client:
         response = await client.post(
-            "http://localhost/-/edit-tables/data/creatures", data={"delete_table": "1"}
+            "http://localhost/-/edit-tables/data/creatures",
+            data={"delete_table": "1"},
+            allow_redirects=False,
+            cookies={"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")},
         )
     assert 403 == response.status_code
 
@@ -39,7 +42,7 @@ async def test_post_without_operation_errror(db_path):
         # Get a csrftoken
         csrftoken = (
             await client.get("http://localhost/-/edit-tables/data/creatures")
-        ).cookies["csrftoken"]
+        ).cookies["ds_csrftoken"]
         response = await client.post(
             "http://localhost/-/edit-tables/data/creatures",
             data={"csrftoken": csrftoken},
@@ -57,7 +60,7 @@ async def test_delete_table(db_path):
         # Get a csrftoken
         csrftoken = (
             await client.get("http://localhost/-/edit-tables/data/creatures")
-        ).cookies["csrftoken"]
+        ).cookies["ds_csrftoken"]
         response = await client.post(
             "http://localhost/-/edit-tables/data/creatures",
             data={"delete_table": "1", "csrftoken": csrftoken},
@@ -81,7 +84,7 @@ async def test_add_column(db_path, col_type, expected_type):
         # Get a csrftoken
         csrftoken = (
             await client.get("http://localhost/-/edit-tables/data/creatures")
-        ).cookies["csrftoken"]
+        ).cookies["ds_csrftoken"]
         response = await client.post(
             "http://localhost/-/edit-tables/data/creatures",
             data={
