@@ -1,7 +1,8 @@
 # datasette-edit-tables
 
 [![PyPI](https://img.shields.io/pypi/v/datasette-edit-tables.svg)](https://pypi.org/project/datasette-edit-tables/)
-[![CircleCI](https://circleci.com/gh/simonw/datasette-edit-tables.svg?style=svg)](https://circleci.com/gh/simonw/datasette-edit-tables)
+[![Changelog](https://img.shields.io/github/v/release/simonw/datasette-edit-tables?include_prereleases&label=changelog)](https://github.com/simonw/datasette-edit-tables/releases)
+[![Tests](https://github.com/simonw/datasette-edit-tables/workflows/Test/badge.svg)](https://github.com/simonw/datasette-edit-tables/actions?query=workflow%3ATest)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/simonw/datasette-edit-tables/blob/master/LICENSE)
 
 Datasette plugin for renaming, deleting and modifying tables.
