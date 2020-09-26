@@ -23,7 +23,10 @@ setup(
     version=VERSION,
     packages=["datasette_edit_tables"],
     entry_points={"datasette": ["edit_tables = datasette_edit_tables"]},
-    install_requires=["datasette>=0.44", "sqlite-utils>=2.4.2",],
+    install_requires=[
+        "datasette>=0.44",
+        "sqlite-utils>=2.21",
+    ],
     extras_require={"test": ["pytest", "pytest-asyncio", "httpx"]},
     tests_require=["datasette-edit-tables[test]"],
     package_data={"datasette_edit_tables": ["templates/*.html"]},
