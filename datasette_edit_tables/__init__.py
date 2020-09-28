@@ -188,7 +188,7 @@ async def delete_table(request, datasette, database, table):
     return Response.redirect("/-/edit-tables/" + database.name)
 
 
-async def add_column(datasette, database, table, formdata):
+async def add_column(request, datasette, database, table, formdata):
     name = formdata["name"]
     type = formdata["type"]
 
