@@ -13,6 +13,15 @@ def register_routes():
     ]
 
 
+TYPES = {
+    str: "TEXT",
+    float: "REAL",
+    int: "INTEGER",
+    bytes: "BLOB",
+}
+REV_TYPES = {v: k for v, k in TYPES.items()}
+
+
 def get_databases(datasette):
     return [db for db in datasette.databases.values() if db.is_mutable]
 
@@ -55,13 +64,14 @@ async def edit_tables_database(request, datasette):
             ]
 
         columns = await database.execute_write_fn(get_columns, block=True)
-        tables.append(
-            {"name": table_name, "columns": columns,}
-        )
+        tables.append({"name": table_name, "columns": columns})
     return Response.html(
         await datasette.render_template(
             "edit_tables_database.html",
-            {"database": database, "tables": tables,},
+            {
+                "database": database,
+                "tables": tables,
+            },
             request=request,
         )
     )
@@ -80,31 +90,91 @@ async def edit_tables_table(request, datasette):
 
     if request.method == "POST":
         formdata = await request.post_vars()
+        if formdata.get("action") == "update_columns":
+            types = {}
+            rename = {}
+            drop = set()
+            order_pairs = []
+
+            def get_columns(conn):
+                return [
+                    {"name": column, "type": dtype}
+                    for column, dtype in sqlite_utils.Database(conn)[
+                        table
+                    ].columns_dict.items()
+                ]
+
+            existing_columns = await database.execute_fn(get_columns)
+
+            for column_details in existing_columns:
+                column = column_details["name"]
+                new_name = formdata.get("name.{}".format(column))
+                if new_name and new_name != column:
+                    rename[column] = new_name
+                if formdata.get("delete.{}".format(column)):
+                    drop.add(column)
+                types[column] = (
+                    REV_TYPES.get(formdata.get("type.{}".format(column)))
+                    or column_details["type"]
+                )
+                order_pairs.append((column, formdata.get("sort.{}".format(column))))
+
+            order_pairs.sort(key=lambda p: int(p[1]))
+
+            def transform_the_table(conn):
+                sqlite_utils.Database(conn)[table].transform(
+                    types=types,
+                    rename=rename,
+                    drop=drop,
+                    column_order=[p[0] for p in order_pairs],
+                )
+
+            await database.execute_write_fn(transform_the_table, block=True)
+
+            datasette.add_message(request, "Changes to table have been saved")
+
+            return Response.redirect(request.path)
+
         if "delete_table" in formdata:
-            return await delete_table(datasette, database, table)
+            return await delete_table(request, datasette, database, table)
         elif "add_column" in formdata:
-            return await add_column(datasette, database, table, formdata)
+            return await add_column(request, datasette, database, table, formdata)
         else:
             return Response.html("Unknown operation", status=400)
 
-    def get_columns(conn):
-        return [
-            {"name": column, "type": dtype}
-            for column, dtype in sqlite_utils.Database(conn)[table].columns_dict.items()
+    def get_columns_and_schema(conn):
+        t = sqlite_utils.Database(conn)[table]
+        columns = [
+            {"name": column, "type": dtype} for column, dtype in t.columns_dict.items()
         ]
+        return columns, t.schema
 
-    columns = await database.execute_fn(get_columns)
+    columns, schema = await database.execute_fn(get_columns_and_schema)
+
+    columns_display = [
+        {
+            "name": c["name"],
+            "type": TYPES[c["type"]],
+        }
+        for c in columns
+    ]
 
     return Response.html(
         await datasette.render_template(
             "edit_tables_table.html",
-            {"database": database, "table": table, "columns": columns,},
+            {
+                "database": database,
+                "table": table,
+                "columns": columns_display,
+                "schema": schema,
+                "types": list(TYPES.values()),
+            },
             request=request,
         )
     )
 
 
-async def delete_table(datasette, database, table):
+async def delete_table(request, datasette, database, table):
     def do_delete_table(conn):
         db = sqlite_utils.Database(conn)
         db[table].disable_fts()
@@ -114,11 +184,11 @@ async def delete_table(datasette, database, table):
     await datasette.databases[database.name].execute_write_fn(
         do_delete_table, block=True
     )
+    datasette.add_message(request, "Table has been deleted")
+    return Response.redirect("/-/edit-tables/" + database.name)
 
-    return Response.redirect("/{}".format(quote_plus(database.name)))
 
-
-async def add_column(datasette, database, table, formdata):
+async def add_column(request, datasette, database, table, formdata):
     name = formdata["name"]
     type = formdata["type"]
 
