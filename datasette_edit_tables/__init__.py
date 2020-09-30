@@ -19,7 +19,7 @@ TYPES = {
     int: "INTEGER",
     bytes: "BLOB",
 }
-REV_TYPES = {v: k for v, k in TYPES.items()}
+REV_TYPES = {v: k for k, v in TYPES.items()}
 
 
 def get_databases(datasette):
@@ -117,7 +117,7 @@ async def edit_tables_table(request, datasette):
                     REV_TYPES.get(formdata.get("type.{}".format(column)))
                     or column_details["type"]
                 )
-                order_pairs.append((column, formdata.get("sort.{}".format(column))))
+                order_pairs.append((column, formdata.get("sort.{}".format(column), 0)))
 
             order_pairs.sort(key=lambda p: int(p[1]))
 
