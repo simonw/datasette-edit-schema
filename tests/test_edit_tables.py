@@ -105,17 +105,46 @@ async def test_add_column(db_path, col_type, expected_type):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "post_data,expected_columns_dict",
+    "post_data,expected_columns_dict,expected_order",
     [
+        # Change column type
         (
             {
                 "type.name": "REAL",
             },
             {"rowid": int, "name": float, "description": str},
+            ["rowid", "name", "description"],
+        ),
+        (
+            {
+                "type.name": "INTEGER",
+            },
+            {"rowid": int, "name": int, "description": str},
+            ["rowid", "name", "description"],
+        ),
+        # Changing order
+        (
+            {
+                "sort.description": "0",
+                "sort.name": "2",
+            },
+            {"rowid": int, "name": str, "description": str},
+            ["rowid", "description", "name"],
+        ),
+        # Change names
+        (
+            {
+                "name.name": "name2",
+                "name.description": "description2",
+            },
+            {"rowid": int, "name2": str, "description2": str},
+            ["rowid", "name2", "description2"],
         ),
     ],
 )
-async def test_transform_table(db_path, post_data, expected_columns_dict):
+async def test_transform_table(
+    db_path, post_data, expected_columns_dict, expected_order
+):
     app = Datasette([db_path]).app()
     db = sqlite_utils.Database(db_path)
     table = db["creatures"]
@@ -133,6 +162,7 @@ async def test_transform_table(db_path, post_data, expected_columns_dict):
         )
     assert 302 == response.status_code
     assert table.columns_dict == expected_columns_dict
+    assert [c.name for c in table.columns] == expected_order
 
 
 @pytest.mark.asyncio
