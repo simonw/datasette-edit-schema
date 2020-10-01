@@ -79,7 +79,7 @@ html body label {
 {% endblock %}
 
 {% block content %}
-<h1>Edit table {{ table }} in {{ database.name }}</h1>
+<h1>Edit table <a href="{{ base_url }}{{ database.name|quote_plus }}/{{ table|quote_plus }}">{{ database.name }}/{{ table }}</a></h1>
 
 <form action="{{ base_url }}-/edit-tables/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
 <h2>Change existing columns</h2>
