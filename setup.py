@@ -13,21 +13,21 @@ def get_long_description():
 
 
 setup(
-    name="datasette-edit-tables",
-    description="Datasette plugin for renaming and deleting tables and columns and changing column types",
+    name="datasette-edit-schema",
+    description="Datasette plugin for modifying table schemas",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     author="Simon Willison",
-    url="https://github.com/simonw/datasette-edit-tables",
+    url="https://github.com/simonw/datasette-edit-schema",
     license="Apache License, Version 2.0",
     version=VERSION,
-    packages=["datasette_edit_tables"],
-    entry_points={"datasette": ["edit_tables = datasette_edit_tables"]},
+    packages=["datasette_edit_schema"],
+    entry_points={"datasette": ["edit_schema = datasette_edit_schema"]},
     install_requires=[
         "datasette>=0.44",
         "sqlite-utils>=2.21",
     ],
     extras_require={"test": ["pytest", "pytest-asyncio", "httpx"]},
-    tests_require=["datasette-edit-tables[test]"],
-    package_data={"datasette_edit_tables": ["templates/*.html", "static/*.js"]},
+    tests_require=["datasette-edit-schema[test]"],
+    package_data={"datasette_edit_schema": ["templates/*.html", "static/*.js"]},
 )

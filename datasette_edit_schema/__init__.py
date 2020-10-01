@@ -6,16 +6,16 @@ import sqlite_utils
 
 @hookimpl
 def permission_allowed(actor, action):
-    if action == "edit-tables" and actor and actor.get("id") == "root":
+    if action == "edit-schema" and actor and actor.get("id") == "root":
         return True
 
 
 @hookimpl
 def register_routes():
     return [
-        (r"^/-/edit-tables$", edit_tables_index),
-        (r"^/-/edit-tables/(?P<database>[^/]+)$", edit_tables_database),
-        (r"^/-/edit-tables/(?P<database>[^/]+)/(?P<table>[^/]+)$", edit_tables_table),
+        (r"^/-/edit-schema$", edit_schema_index),
+        (r"^/-/edit-schema/(?P<database>[^/]+)$", edit_schema_database),
+        (r"^/-/edit-schema/(?P<database>[^/]+)/(?P<table>[^/]+)$", edit_schema_table),
     ]
 
 
@@ -34,26 +34,26 @@ def get_databases(datasette):
 
 async def check_permissions(datasette, request):
     if not await datasette.permission_allowed(
-        request.actor, "edit-tables", default=False
+        request.actor, "edit-schema", default=False
     ):
-        raise Forbidden("Permission denied for edit-tables")
+        raise Forbidden("Permission denied for edit-schema")
 
 
-async def edit_tables_index(datasette, request):
+async def edit_schema_index(datasette, request):
     await check_permissions(datasette, request)
     databases = get_databases(datasette)
     if 1 == len(databases):
         return Response.redirect(
-            "/-/edit-tables/{}".format(quote_plus(databases[0].name))
+            "/-/edit-schema/{}".format(quote_plus(databases[0].name))
         )
     return Response.html(
         await datasette.render_template(
-            "edit_tables_index.html", {"databases": databases}, request=request
+            "edit_schema_index.html", {"databases": databases}, request=request
         )
     )
 
 
-async def edit_tables_database(request, datasette):
+async def edit_schema_database(request, datasette):
     await check_permissions(datasette, request)
     databases = get_databases(datasette)
     database_name = request.url_vars["database"]
@@ -82,7 +82,7 @@ async def edit_tables_database(request, datasette):
         tables.append({"name": table_name, "columns": columns})
     return Response.html(
         await datasette.render_template(
-            "edit_tables_database.html",
+            "edit_schema_database.html",
             {
                 "database": database,
                 "tables": tables,
@@ -92,7 +92,7 @@ async def edit_tables_database(request, datasette):
     )
 
 
-async def edit_tables_table(request, datasette):
+async def edit_schema_table(request, datasette):
     await check_permissions(datasette, request)
     table = request.url_vars["table"]
     databases = get_databases(datasette)
@@ -177,7 +177,7 @@ async def edit_tables_table(request, datasette):
 
     return Response.html(
         await datasette.render_template(
-            "edit_tables_table.html",
+            "edit_schema_table.html",
             {
                 "database": database,
                 "table": table,
@@ -201,7 +201,7 @@ async def delete_table(request, datasette, database, table):
         do_delete_table, block=True
     )
     datasette.add_message(request, "Table has been deleted")
-    return Response.redirect("/-/edit-tables/" + database.name)
+    return Response.redirect("/-/edit-schema/" + database.name)
 
 
 async def add_column(request, datasette, database, table, formdata):

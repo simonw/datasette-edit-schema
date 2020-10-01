@@ -27,7 +27,7 @@ async def test_csrf_required(db_path):
     ds = Datasette([db_path])
     async with httpx.AsyncClient(app=ds.app()) as client:
         response = await client.post(
-            "http://localhost/-/edit-tables/data/creatures",
+            "http://localhost/-/edit-schema/data/creatures",
             data={"delete_table": "1"},
             allow_redirects=False,
             cookies={"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")},
@@ -43,12 +43,12 @@ async def test_post_without_operation_raises_error(db_path):
         # Get a csrftoken
         csrftoken = (
             await client.get(
-                "http://localhost/-/edit-tables/data/creatures", cookies=cookies
+                "http://localhost/-/edit-schema/data/creatures", cookies=cookies
             )
         ).cookies["ds_csrftoken"]
         cookies["ds_csrftoken"] = csrftoken
         response = await client.post(
-            "http://localhost/-/edit-tables/data/creatures",
+            "http://localhost/-/edit-schema/data/creatures",
             data={"csrftoken": csrftoken},
             allow_redirects=False,
             cookies=cookies,
@@ -66,11 +66,11 @@ async def test_delete_table(db_path):
         # Get a csrftoken
         csrftoken = (
             await client.get(
-                "http://localhost/-/edit-tables/data/creatures", cookies=cookies
+                "http://localhost/-/edit-schema/data/creatures", cookies=cookies
             )
         ).cookies["ds_csrftoken"]
         response = await client.post(
-            "http://localhost/-/edit-tables/data/creatures",
+            "http://localhost/-/edit-schema/data/creatures",
             data={"delete_table": "1", "csrftoken": csrftoken},
             allow_redirects=False,
             cookies=cookies,
@@ -94,11 +94,11 @@ async def test_add_column(db_path, col_type, expected_type):
         # Get a csrftoken
         csrftoken = (
             await client.get(
-                "http://localhost/-/edit-tables/data/creatures", cookies=cookies
+                "http://localhost/-/edit-schema/data/creatures", cookies=cookies
             )
         ).cookies["ds_csrftoken"]
         response = await client.post(
-            "http://localhost/-/edit-tables/data/creatures",
+            "http://localhost/-/edit-schema/data/creatures",
             data={
                 "add_column": "1",
                 "csrftoken": csrftoken,
@@ -166,13 +166,13 @@ async def test_transform_table(
     async with httpx.AsyncClient(app=ds.app()) as client:
         csrftoken = (
             await client.get(
-                "http://localhost/-/edit-tables/data/creatures", cookies=cookies
+                "http://localhost/-/edit-schema/data/creatures", cookies=cookies
             )
         ).cookies["ds_csrftoken"]
         post_data["csrftoken"] = csrftoken
         post_data["action"] = "update_columns"
         response = await client.post(
-            "http://localhost/-/edit-tables/data/creatures",
+            "http://localhost/-/edit-schema/data/creatures",
             data=post_data,
             allow_redirects=False,
             cookies=cookies,
@@ -187,7 +187,7 @@ async def test_static_assets(db_path):
     ds = Datasette([db_path])
     async with httpx.AsyncClient(app=ds.app()) as client:
         for path in (
-            "/-/static-plugins/datasette-edit-tables/draggable.1.0.0-beta.11.bundle.min.js",
+            "/-/static-plugins/datasette-edit-schema/draggable.1.0.0-beta.11.bundle.min.js",
         ):
             response = await client.post(
                 "http://localhost" + path,
@@ -197,7 +197,7 @@ async def test_static_assets(db_path):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "path", ["/-/edit-tables", "/-/edit-tables/data", "/-/edit-tables/data/creatures"]
+    "path", ["/-/edit-schema", "/-/edit-schema/data", "/-/edit-schema/data/creatures"]
 )
 async def test_permission_check(db_path, path):
     ds = Datasette([db_path])

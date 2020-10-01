@@ -63,7 +63,7 @@ html body label {
   content: '.. .. .. ..';
 }
 </style>
-<script src="{{ base_url }}-/static-plugins/datasette-edit-tables/draggable.1.0.0-beta.11.bundle.min.js"></script>
+<script src="{{ base_url }}-/static-plugins/datasette-edit-schema/draggable.1.0.0-beta.11.bundle.min.js"></script>
 <style>
 .draggable-source--is-dragging {
     visibility: hidden;
@@ -81,7 +81,7 @@ html body label {
 {% block content %}
 <h1>Edit table <a href="{{ base_url }}{{ database.name|quote_plus }}/{{ table|quote_plus }}">{{ database.name }}/{{ table }}</a></h1>
 
-<form action="{{ base_url }}-/edit-tables/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
+<form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
 <h2>Change existing columns</h2>
 <ul class="sortable-columns">
 {% for column in columns %}
@@ -111,7 +111,7 @@ html body label {
 
 <h2>Add a column</h2>
 
-<form action="{{ base_url }}-/edit-tables/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
+<form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
     <input type="hidden" name="add_column" value="1">
     <p><label>Name <input type="text" name="name"></label>
@@ -126,7 +126,7 @@ html body label {
 
 <h2>Delete table</h2>
 
-<form action="{{ base_url }}-/edit-tables/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
+<form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
     <input type="hidden" name="delete_table" value="1">
     <input type="submit" value="Delete this table">

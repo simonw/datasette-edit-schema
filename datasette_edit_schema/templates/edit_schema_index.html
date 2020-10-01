@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Edit tables{% endblock %}
+{% block title %}Edit schema{% endblock %}
 
 {% block extra_head %}
 
@@ -14,14 +14,14 @@
 {% endblock %}
 
 {% block content %}
-<h1>Edit tables</h1>
+<h1>Edit schema</h1>
 
 {% if databases %}
     <p>Select a database to edit:</p>
 
     <ul>
     {% for database in databases %}
-        <li><a href="/-/edit-tables/{{ database.name|quote_plus }}">{{ database.name }}</a></li>
+        <li><a href="/-/edit-schema/{{ database.name|quote_plus }}">{{ database.name }}</a></li>
     {% endfor %}
     </ul>
 {% else %}
