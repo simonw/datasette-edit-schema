@@ -36,35 +36,44 @@ async def test_csrf_required(db_path):
 
 
 @pytest.mark.asyncio
-async def test_post_without_operation_errror(db_path):
-    app = Datasette([db_path]).app()
-    async with httpx.AsyncClient(app=app) as client:
+async def test_post_without_operation_raises_error(db_path):
+    ds = Datasette([db_path])
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    async with httpx.AsyncClient(app=ds.app()) as client:
         # Get a csrftoken
         csrftoken = (
-            await client.get("http://localhost/-/edit-tables/data/creatures")
+            await client.get(
+                "http://localhost/-/edit-tables/data/creatures", cookies=cookies
+            )
         ).cookies["ds_csrftoken"]
+        cookies["ds_csrftoken"] = csrftoken
         response = await client.post(
             "http://localhost/-/edit-tables/data/creatures",
             data={"csrftoken": csrftoken},
             allow_redirects=False,
+            cookies=cookies,
         )
     assert 400 == response.status_code
 
 
 @pytest.mark.asyncio
 async def test_delete_table(db_path):
-    app = Datasette([db_path]).app()
+    ds = Datasette([db_path])
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     db = sqlite_utils.Database(db_path)
     assert "creatures" in db.table_names()
-    async with httpx.AsyncClient(app=app) as client:
+    async with httpx.AsyncClient(app=ds.app()) as client:
         # Get a csrftoken
         csrftoken = (
-            await client.get("http://localhost/-/edit-tables/data/creatures")
+            await client.get(
+                "http://localhost/-/edit-tables/data/creatures", cookies=cookies
+            )
         ).cookies["ds_csrftoken"]
         response = await client.post(
             "http://localhost/-/edit-tables/data/creatures",
             data={"delete_table": "1", "csrftoken": csrftoken},
             allow_redirects=False,
+            cookies=cookies,
         )
     assert 302 == response.status_code
     assert "creatures" not in db.table_names()
@@ -76,14 +85,17 @@ async def test_delete_table(db_path):
     [("text", str), ("integer", int), ("float", float), ("blob", bytes)],
 )
 async def test_add_column(db_path, col_type, expected_type):
-    app = Datasette([db_path]).app()
+    ds = Datasette([db_path])
     db = sqlite_utils.Database(db_path)
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     table = db["creatures"]
     assert {"name": str, "description": str} == table.columns_dict
-    async with httpx.AsyncClient(app=app) as client:
+    async with httpx.AsyncClient(app=ds.app()) as client:
         # Get a csrftoken
         csrftoken = (
-            await client.get("http://localhost/-/edit-tables/data/creatures")
+            await client.get(
+                "http://localhost/-/edit-tables/data/creatures", cookies=cookies
+            )
         ).cookies["ds_csrftoken"]
         response = await client.post(
             "http://localhost/-/edit-tables/data/creatures",
@@ -94,6 +106,7 @@ async def test_add_column(db_path, col_type, expected_type):
                 "type": col_type,
             },
             allow_redirects=False,
+            cookies=cookies,
         )
     assert 302 == response.status_code
     assert {
@@ -145,13 +158,16 @@ async def test_add_column(db_path, col_type, expected_type):
 async def test_transform_table(
     db_path, post_data, expected_columns_dict, expected_order
 ):
-    app = Datasette([db_path]).app()
+    ds = Datasette([db_path])
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     db = sqlite_utils.Database(db_path)
     table = db["creatures"]
     assert table.columns_dict == {"name": str, "description": str}
-    async with httpx.AsyncClient(app=app) as client:
+    async with httpx.AsyncClient(app=ds.app()) as client:
         csrftoken = (
-            await client.get("http://localhost/-/edit-tables/data/creatures")
+            await client.get(
+                "http://localhost/-/edit-tables/data/creatures", cookies=cookies
+            )
         ).cookies["ds_csrftoken"]
         post_data["csrftoken"] = csrftoken
         post_data["action"] = "update_columns"
@@ -159,6 +175,7 @@ async def test_transform_table(
             "http://localhost/-/edit-tables/data/creatures",
             data=post_data,
             allow_redirects=False,
+            cookies=cookies,
         )
     assert 302 == response.status_code
     assert table.columns_dict == expected_columns_dict
@@ -176,3 +193,26 @@ async def test_static_assets(db_path):
                 "http://localhost" + path,
             )
             assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path", ["/-/edit-tables", "/-/edit-tables/data", "/-/edit-tables/data/creatures"]
+)
+async def test_permission_check(db_path, path):
+    ds = Datasette([db_path])
+    someuser_cookies = {"ds_actor": ds.sign({"a": {"id": "someuser"}}, "actor")}
+    root_cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    async with httpx.AsyncClient(app=ds.app()) as client:
+        response = await client.get(
+            "http://localhost" + path,
+        )
+        assert response.status_code == 403
+        # Should deny with someuser cookie
+        response = await client.get("http://localhost" + path, cookies=someuser_cookies)
+        assert response.status_code == 403
+        # Should allow with root cookies
+        response = await client.get(
+            "http://localhost" + path, cookies=root_cookies, allow_redirects=False
+        )
+        assert response.status_code in (200, 302)

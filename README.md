@@ -26,3 +26,8 @@ Install this plugin in the same environment as Datasette.
 Navigate to `/-/edit-tables/dbname/tablename` on your Datasette instance to edit a specific table.
 
 Use `/-/edit-tables/dbname` to create a new table in a specific database.
+
+
+By default only [the root actor](https://datasette.readthedocs.io/en/stable/authentication.html#using-the-root-actor) can access the page - so you'll need to run Datasette with the `--root` option and click on the link shown in the terminal to sign in and access the page.
+
+The `edit-tables` permission governs access. You can use permission plugins such as [datasette-permissions-sql](https://github.com/simonw/datasette-permissions-sql) to grant additional access to the write interface.

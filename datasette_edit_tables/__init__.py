@@ -1,7 +1,13 @@
 from datasette import hookimpl
-from datasette.utils.asgi import Response, NotFound
+from datasette.utils.asgi import Response, NotFound, Forbidden
 from urllib.parse import quote_plus
 import sqlite_utils
+
+
+@hookimpl
+def permission_allowed(actor, action):
+    if action == "edit-tables" and actor and actor.get("id") == "root":
+        return True
 
 
 @hookimpl
@@ -26,7 +32,15 @@ def get_databases(datasette):
     return [db for db in datasette.databases.values() if db.is_mutable]
 
 
+async def check_permissions(datasette, request):
+    if not await datasette.permission_allowed(
+        request.actor, "edit-tables", default=False
+    ):
+        raise Forbidden("Permission denied for edit-tables")
+
+
 async def edit_tables_index(datasette, request):
+    await check_permissions(datasette, request)
     databases = get_databases(datasette)
     if 1 == len(databases):
         return Response.redirect(
@@ -40,6 +54,7 @@ async def edit_tables_index(datasette, request):
 
 
 async def edit_tables_database(request, datasette):
+    await check_permissions(datasette, request)
     databases = get_databases(datasette)
     database_name = request.url_vars["database"]
     just_these_tables = set(request.args.getlist("table"))
@@ -78,6 +93,7 @@ async def edit_tables_database(request, datasette):
 
 
 async def edit_tables_table(request, datasette):
+    await check_permissions(datasette, request)
     table = request.url_vars["table"]
     databases = get_databases(datasette)
     database_name = request.url_vars["database"]
