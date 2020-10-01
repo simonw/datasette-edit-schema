@@ -7,13 +7,14 @@
 
 Datasette plugin for modifying table schemas
 
-## Features (planned)
+## Features
 
+* Add new columns to a table
+* Rename columns in a table
+* Modify the type of columns in a table
+* Re-order the columns in a table
 * Rename a table
 * Delete a table
-* Modify the type of columns in a table
-* Add new columns to a table
-* Create a new empty table from scratch
 
 ## Installation
 
@@ -27,7 +28,30 @@ Navigate to `/-/edit-schema/dbname/tablename` on your Datasette instance to edit
 
 Use `/-/edit-schema/dbname` to create a new table in a specific database.
 
-
 By default only [the root actor](https://datasette.readthedocs.io/en/stable/authentication.html#using-the-root-actor) can access the page - so you'll need to run Datasette with the `--root` option and click on the link shown in the terminal to sign in and access the page.
 
 The `edit-schema` permission governs access. You can use permission plugins such as [datasette-permissions-sql](https://github.com/simonw/datasette-permissions-sql) to grant additional access to the write interface.
+
+## Screenshot
+
+![datasette-edit-schema interface](https://raw.githubusercontent.com/simonw/datasette-edit-schema/main/datasette-edit-schema.png)
+
+## Development
+
+To set up this plugin locally, first checkout the code. Then create a new virtual environment:
+
+    cd datasette-edit-schema
+    python3 -mvenv venv
+    source venv/bin/activate
+
+Or if you are using `pipenv`:
+
+    pipenv shell
+
+Now install the dependencies and tests:
+
+    pip install -e '.[test]'
+
+To run the tests:
+
+    pytest
