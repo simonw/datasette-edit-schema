@@ -1,5 +1,6 @@
 from datasette import hookimpl
 from datasette.utils.asgi import Response, NotFound, Forbidden
+from datasette.utils import sqlite3
 from urllib.parse import quote_plus, unquote_plus
 import sqlite_utils
 
@@ -210,15 +211,37 @@ async def add_column(request, datasette, database, table, formdata):
     name = formdata["name"]
     type = formdata["type"]
 
+    redirect = Response.redirect(
+        "/-/edit-schema/{}/{}".format(quote_plus(database.name), quote_plus(table))
+    )
+
+    if not name:
+        datasette.add_message(request, "Column name is required", datasette.ERROR)
+        return redirect
+
+    if type.upper() not in REV_TYPES:
+        datasette.add_message(request, "Invalid type: {}".format(type), datasette.ERROR)
+        return redirect
+
     def do_add_column(conn):
         db = sqlite_utils.Database(conn)
-        db[table].add_column(name, type)
+        db[table].add_column(name, REV_TYPES[type.upper()])
 
-    await datasette.databases[database.name].execute_write_fn(do_add_column, block=True)
+    error = None
+    try:
+        await datasette.databases[database.name].execute_write_fn(
+            do_add_column, block=True
+        )
+    except sqlite3.OperationalError as e:
+        if "duplicate column name" in str(e):
+            error = "A column called '{}' already exists".format(name)
+        else:
+            error = str(e)
 
-    return Response.redirect(
-        "/{}/{}".format(quote_plus(database.name), quote_plus(table))
-    )
+    if error:
+        datasette.add_message(request, error, datasette.ERROR)
+
+    return redirect
 
 
 async def rename_table(request, datasette, database, table, formdata):

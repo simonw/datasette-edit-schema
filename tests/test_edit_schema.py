@@ -83,7 +83,7 @@ async def test_delete_table(db_path):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "col_type,expected_type",
-    [("text", str), ("integer", int), ("float", float), ("blob", bytes)],
+    [("text", str), ("integer", int), ("real", float), ("blob", bytes)],
 )
 async def test_add_column(db_path, col_type, expected_type):
     ds = Datasette([db_path])
@@ -110,11 +110,54 @@ async def test_add_column(db_path, col_type, expected_type):
             cookies=cookies,
         )
     assert 302 == response.status_code
+    if "ds_messages" in response.cookies:
+        messages = ds.unsign(response.cookies["ds_messages"], "messages")
+        # None of these should be errors
+        assert all(m[1] == Datasette.INFO for m in messages), "Got an error: {}".format(
+            messages
+        )
     assert {
         "name": str,
         "description": str,
         "new_col": expected_type,
     } == table.columns_dict
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "name,type,expected_error",
+    [
+        ("name", "text", "A column called 'name' already exists"),
+        ("", "text", "Column name is required"),
+        ("]]]", "integer", 'unrecognized token: "]"'),
+        ("name", "blop", "Invalid type: blop"),
+    ],
+)
+async def test_add_column_errors(db_path, name, type, expected_error):
+    ds = Datasette([db_path])
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    async with httpx.AsyncClient(app=ds.app()) as client:
+        csrftoken = (
+            await client.get(
+                "http://localhost/-/edit-schema/data/creatures", cookies=cookies
+            )
+        ).cookies["ds_csrftoken"]
+        response = await client.post(
+            "http://localhost/-/edit-schema/data/creatures",
+            data={
+                "add_column": "1",
+                "name": name,
+                "type": type,
+                "csrftoken": csrftoken,
+            },
+            allow_redirects=False,
+            cookies=cookies,
+        )
+    response.status_code == 302
+    assert response.headers["location"] == "/-/edit-schema/data/creatures"
+    messages = ds.unsign(response.cookies["ds_messages"], "messages")
+    assert len(messages) == 1
+    assert messages[0][0] == expected_error
 
 
 @pytest.mark.asyncio
