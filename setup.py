@@ -29,5 +29,5 @@ setup(
     ],
     extras_require={"test": ["pytest", "pytest-asyncio", "httpx"]},
     tests_require=["datasette-edit-tables[test]"],
-    package_data={"datasette_edit_tables": ["templates/*.html"]},
+    package_data={"datasette_edit_tables": ["templates/*.html", "static/*.js"]},
 )

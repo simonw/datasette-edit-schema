@@ -133,3 +133,16 @@ async def test_transform_table(db_path, post_data, expected_columns_dict):
         )
     assert 302 == response.status_code
     assert table.columns_dict == expected_columns_dict
+
+
+@pytest.mark.asyncio
+async def test_static_assets(db_path):
+    ds = Datasette([db_path])
+    async with httpx.AsyncClient(app=ds.app()) as client:
+        for path in (
+            "/-/static-plugins/datasette-edit-tables/draggable.1.0.0-beta.11.bundle.min.js",
+        ):
+            response = await client.post(
+                "http://localhost" + path,
+            )
+            assert response.status_code == 200
