@@ -18,7 +18,7 @@
 
 {% for table in tables %}
     <h2><a href="/-/edit-tables/{{ database.name|quote_plus }}/{{ table.name|quote_plus }}">{{ table.name }}</a></h2>
-    <p>{{ table.columns }}</p>
+    <p>{% for column in table.columns %}{{ column.name }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
 {% endfor %}
 
 {% endblock %}
