@@ -1,6 +1,6 @@
 from datasette import hookimpl
 from datasette.utils.asgi import Response, NotFound, Forbidden
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, unquote_plus
 import sqlite_utils
 
 
@@ -94,7 +94,7 @@ async def edit_schema_database(request, datasette):
 
 async def edit_schema_table(request, datasette):
     await check_permissions(datasette, request)
-    table = request.url_vars["table"]
+    table = unquote_plus(request.url_vars["table"])
     databases = get_databases(datasette)
     database_name = request.url_vars["database"]
     try:
@@ -155,6 +155,8 @@ async def edit_schema_table(request, datasette):
             return await delete_table(request, datasette, database, table)
         elif "add_column" in formdata:
             return await add_column(request, datasette, database, table, formdata)
+        elif "rename_table" in formdata:
+            return await rename_table(request, datasette, database, table, formdata)
         else:
             return Response.html("Unknown operation", status=400)
 
@@ -216,4 +218,47 @@ async def add_column(request, datasette, database, table, formdata):
 
     return Response.redirect(
         "/{}/{}".format(quote_plus(database.name), quote_plus(table))
+    )
+
+
+async def rename_table(request, datasette, database, table, formdata):
+    new_name = formdata.get("name", "").strip()
+    redirect = Response.redirect(
+        "/-/edit-schema/{}/{}".format(quote_plus(database.name), quote_plus(table))
+    )
+    if not new_name:
+        datasette.add_message(request, "New table name is required", datasette.ERROR)
+        return redirect
+    if new_name == table:
+        datasette.add_message(request, "Table name was the same", datasette.WARNING)
+        return redirect
+
+    existing_tables = await database.table_names()
+    if new_name in existing_tables:
+        datasette.add_message(
+            request,
+            "A table called '{}' already exists".format(new_name),
+            datasette.ERROR,
+        )
+        return redirect
+
+    try:
+        await database.execute_write(
+            """
+            ALTER TABLE [{}] RENAME TO [{}];
+        """.format(
+                table, new_name
+            ),
+            block=True,
+        )
+        datasette.add_message(
+            request, "Table renamed to '{}'".format(new_name), datasette.INFO
+        )
+    except Exception as error:
+        datasette.add_message(
+            request, "Error renaming table: {}".format(str(error)), datasette.ERROR
+        )
+        return redirect
+    return Response.redirect(
+        "/-/edit-schema/{}/{}".format(quote_plus(database.name), quote_plus(new_name))
     )

@@ -132,6 +132,15 @@ html body label {
     <input type="submit" value="Delete this table">
 </form>
 
+<h2>Rename table</h2>
+
+<form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
+    <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
+    <p><label>New name <input type="text" name="name"></label>
+    <input type="hidden" name="rename_table" value="1">
+    <input type="submit" value="Rename this table">
+</form>
+
 <h2>Current table schema</h2>
 <pre>{{ schema }}</pre>
 

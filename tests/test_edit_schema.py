@@ -19,6 +19,7 @@ def db_path(tmpdir):
             {"name": "Siroco", "description": "A troublesome Kakapo"},
         ]
     )
+    db["other_table"].insert({"foo": "bar"})
     return path
 
 
@@ -216,3 +217,44 @@ async def test_permission_check(db_path, path):
             "http://localhost" + path, cookies=root_cookies, allow_redirects=False
         )
         assert response.status_code in (200, 302)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "new_name,should_work,expected_message",
+    [
+        ("valid", True, "Table renamed to 'valid'"),
+        ("]]]", False, 'Error renaming table: unrecognized token: "]"'),
+        ("creatures", True, "Table name was the same"),
+        ("", False, "New table name is required"),
+        ("other_table", False, "A table called 'other_table' already exists"),
+    ],
+)
+async def test_rename_table(db_path, new_name, should_work, expected_message):
+    ds = Datasette([db_path])
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    async with httpx.AsyncClient(app=ds.app()) as client:
+        csrftoken = (
+            await client.get(
+                "http://localhost/-/edit-schema/data/creatures", cookies=cookies
+            )
+        ).cookies["ds_csrftoken"]
+        response = await client.post(
+            "http://localhost/-/edit-schema/data/creatures",
+            data={
+                "rename_table": "1",
+                "name": new_name,
+                "csrftoken": csrftoken,
+            },
+            allow_redirects=False,
+            cookies=cookies,
+        )
+    response.status_code == 302
+    if should_work:
+        expected_path = "/-/edit-schema/data/{}".format(new_name)
+    else:
+        expected_path = "/-/edit-schema/data/creatures"
+    assert response.headers["location"] == expected_path
+    messages = ds.unsign(response.cookies["ds_messages"], "messages")
+    assert len(messages) == 1
+    assert messages[0][0] == expected_message
