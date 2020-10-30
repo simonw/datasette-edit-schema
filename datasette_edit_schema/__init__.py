@@ -12,6 +12,23 @@ def permission_allowed(actor, action):
 
 
 @hookimpl
+def table_actions(datasette, actor, database, table):
+    async def inner():
+        if not await datasette.permission_allowed(actor, "edit-schema", default=False):
+            return []
+        return [
+            {
+                "href": datasette.urls.path(
+                    "/-/edit-schema/{}/{}".format(database, quote_plus(table))
+                ),
+                "label": "Edit table schema",
+            }
+        ]
+
+    return inner
+
+
+@hookimpl
 def register_routes():
     return [
         (r"^/-/edit-schema$", edit_schema_index),

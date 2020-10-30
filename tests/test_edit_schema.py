@@ -36,6 +36,26 @@ async def test_csrf_required(db_path):
     assert 403 == response.status_code
 
 
+@pytest.mark.parametrize("authenticate", [True, False])
+@pytest.mark.asyncio
+async def test_table_actions(db_path, authenticate):
+    ds = Datasette([db_path])
+    async with httpx.AsyncClient(app=ds.app()) as client:
+        cookies = None
+        if authenticate:
+            cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+        response = await client.get("http://localhost/data/creatures", cookies=cookies)
+        assert response.status_code == 200
+        fragment = (
+            '<li><a href="/-/edit-schema/data/creatures">Edit table schema</a></li>'
+        )
+        if authenticate:
+            # Should have column actions
+            assert fragment in response.text
+        else:
+            assert fragment not in response.text
+
+
 @pytest.mark.asyncio
 async def test_post_without_operation_raises_error(db_path):
     ds = Datasette([db_path])

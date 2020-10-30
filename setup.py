@@ -1,7 +1,7 @@
 from setuptools import setup
 import os
 
-VERSION = "0.3"
+VERSION = "0.3a"
 
 
 def get_long_description():
@@ -24,7 +24,7 @@ setup(
     packages=["datasette_edit_schema"],
     entry_points={"datasette": ["edit_schema = datasette_edit_schema"]},
     install_requires=[
-        "datasette>=0.44",
+        "datasette>=0.51a1",
         "sqlite-utils>=2.21",
     ],
     extras_require={"test": ["pytest", "pytest-asyncio", "httpx"]},
