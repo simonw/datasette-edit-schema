@@ -173,15 +173,15 @@ async def test_add_column_errors(db_path, name, type, expected_error):
             {
                 "type.name": "REAL",
             },
-            {"rowid": int, "name": float, "description": str},
-            ["rowid", "name", "description"],
+            {"name": float, "description": str},
+            ["name", "description"],
         ),
         (
             {
                 "type.name": "INTEGER",
             },
-            {"rowid": int, "name": int, "description": str},
-            ["rowid", "name", "description"],
+            {"name": int, "description": str},
+            ["name", "description"],
         ),
         # Changing order
         (
@@ -189,8 +189,8 @@ async def test_add_column_errors(db_path, name, type, expected_error):
                 "sort.description": "0",
                 "sort.name": "2",
             },
-            {"rowid": int, "name": str, "description": str},
-            ["rowid", "description", "name"],
+            {"name": str, "description": str},
+            ["description", "name"],
         ),
         # Change names
         (
@@ -198,8 +198,8 @@ async def test_add_column_errors(db_path, name, type, expected_error):
                 "name.name": "name2",
                 "name.description": "description2",
             },
-            {"rowid": int, "name2": str, "description2": str},
-            ["rowid", "name2", "description2"],
+            {"name2": str, "description2": str},
+            ["name2", "description2"],
         ),
     ],
 )
