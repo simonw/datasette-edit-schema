@@ -32,18 +32,25 @@ async def test_csrf_required(db_path):
     assert response.status_code == 403
 
 
-@pytest.mark.parametrize("authenticate", [True, False])
+@pytest.mark.parametrize(
+    "authenticated,path,should_allow",
+    (
+        (False, "/data/creatures", False),
+        (True, "/data/creatures", True),
+        (True, "/_internal/tables", False),
+    ),
+)
 @pytest.mark.asyncio
-async def test_table_actions(db_path, authenticate):
+async def test_table_actions(db_path, authenticated, path, should_allow):
     ds = Datasette([db_path])
     cookies = None
-    if authenticate:
+    if authenticated:
         cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
-    response = await ds.client.get("/data/creatures", cookies=cookies)
+    response = await ds.client.get(path, cookies=cookies)
     assert response.status_code == 200
-    fragment = '<li><a href="/-/edit-schema/data/creatures">Edit table schema</a></li>'
-    if authenticate:
-        # Should have column actions
+    fragment = '<li><a href="/-/edit-schema{}">Edit table schema</a></li>'.format(path)
+    if should_allow:
+        # Should have table action
         assert fragment in response.text
     else:
         assert fragment not in response.text

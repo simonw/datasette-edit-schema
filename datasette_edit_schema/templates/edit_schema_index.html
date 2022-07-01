@@ -21,7 +21,7 @@
 
     <ul>
     {% for database in databases %}
-        <li><a href="/-/edit-schema/{{ database.name|quote_plus }}">{{ database.name }}</a></li>
+        <li><a href="/-/edit-schema/{{ database|quote_plus }}">{{ database }}</a></li>
     {% endfor %}
     </ul>
 {% else %}

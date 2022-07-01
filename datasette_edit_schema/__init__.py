@@ -6,15 +6,22 @@ import sqlite_utils
 
 
 @hookimpl
-def permission_allowed(actor, action):
-    if action == "edit-schema" and actor and actor.get("id") == "root":
+def permission_allowed(actor, action, resource):
+    if (
+        action == "edit-schema"
+        and actor
+        and actor.get("id") == "root"
+        and resource != "_internal"
+    ):
         return True
 
 
 @hookimpl
 def table_actions(datasette, actor, database, table):
     async def inner():
-        if not await datasette.permission_allowed(actor, "edit-schema", default=False):
+        if not await datasette.permission_allowed(
+            actor, "edit-schema", resource=database, default=False
+        ):
             return []
         return [
             {
@@ -47,34 +54,53 @@ REV_TYPES = {v: k for k, v in TYPES.items()}
 
 
 def get_databases(datasette):
-    return [db for db in datasette.databases.values() if db.is_mutable]
+    return [
+        db
+        for db in datasette.databases.values()
+        if db.is_mutable and db.name != "_internal"
+    ]
 
 
-async def check_permissions(datasette, request):
+async def check_permissions(datasette, request, database):
     if not await datasette.permission_allowed(
-        request.actor, "edit-schema", default=False
+        request.actor, "edit-schema", resource=database, default=False
     ):
         raise Forbidden("Permission denied for edit-schema")
 
 
 async def edit_schema_index(datasette, request):
-    await check_permissions(datasette, request)
-    databases = get_databases(datasette)
-    if 1 == len(databases):
-        return Response.redirect(
-            "/-/edit-schema/{}".format(quote_plus(databases[0].name))
+    database_names = [db.name for db in get_databases(datasette)]
+    # Check permissions for each one
+    allowed_databases = [
+        name
+        for name in database_names
+        if await datasette.permission_allowed(
+            request.actor, "edit-schema", resource=name, default=False
         )
+    ]
+    if not allowed_databases:
+        raise Forbidden("Permission denied for edit-schema")
+
+    if len(allowed_databases) == 1:
+        return Response.redirect(
+            "/-/edit-schema/{}".format(quote_plus(allowed_databases[0]))
+        )
+
     return Response.html(
         await datasette.render_template(
-            "edit_schema_index.html", {"databases": databases}, request=request
+            "edit_schema_index.html",
+            {
+                "databases": allowed_databases,
+            },
+            request=request,
         )
     )
 
 
 async def edit_schema_database(request, datasette):
-    await check_permissions(datasette, request)
     databases = get_databases(datasette)
     database_name = request.url_vars["database"]
+    await check_permissions(datasette, request, database_name)
     just_these_tables = set(request.args.getlist("table"))
     try:
         database = [db for db in databases if db.name == database_name][0]
@@ -111,10 +137,10 @@ async def edit_schema_database(request, datasette):
 
 
 async def edit_schema_table(request, datasette):
-    await check_permissions(datasette, request)
     table = unquote_plus(request.url_vars["table"])
     databases = get_databases(datasette)
     database_name = request.url_vars["database"]
+    await check_permissions(datasette, request, database_name)
     try:
         database = [db for db in databases if db.name == database_name][0]
     except IndexError:

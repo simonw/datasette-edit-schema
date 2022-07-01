@@ -30,7 +30,15 @@ Use `/-/edit-schema/dbname` to create a new table in a specific database.
 
 By default only [the root actor](https://datasette.readthedocs.io/en/stable/authentication.html#using-the-root-actor) can access the page - so you'll need to run Datasette with the `--root` option and click on the link shown in the terminal to sign in and access the page.
 
+## Permissions
+
 The `edit-schema` permission governs access. You can use permission plugins such as [datasette-permissions-sql](https://github.com/simonw/datasette-permissions-sql) to grant additional access to the write interface.
+
+These permission checks will call the `permission_allowed()` plugin hook with three arguments:
+
+- `action` will be the string `"edit-schema"`
+- `actor` will be the currently authenticated actor - usually a dictionary
+- `resource` will be the string name of the database
 
 ## Screenshot
 
