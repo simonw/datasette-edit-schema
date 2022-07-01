@@ -89,7 +89,7 @@ html body label {
         <input style="width: 30%" type="text" size="10" name="name.{{ column.name }}" value="{{ column.name }}">
         <label>Type: <select name="type.{{ column.name }}">
             {% for type in types %}
-                <option{% if type == column.type %} selected="selected"{% endif %}>{{ type }}</option>
+                <option{% if type.value == column.type %} selected="selected"{% endif %} value="{{ type.value }}">{{ type.name }}</option>
             {% endfor %}
         </select></label>
         <label class="sort-order">Sort order

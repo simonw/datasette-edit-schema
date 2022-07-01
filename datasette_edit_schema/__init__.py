@@ -51,6 +51,12 @@ TYPES = {
     bytes: "BLOB",
 }
 REV_TYPES = {v: k for k, v in TYPES.items()}
+TYPE_NAMES = {
+    "TEXT": "Text",
+    "REAL": "Floating point",
+    "INTEGER": "Integer",
+    "BLOB": "Binary data",
+}
 
 
 def get_databases(datasette):
@@ -229,7 +235,10 @@ async def edit_schema_table(request, datasette):
                 "table": table,
                 "columns": columns_display,
                 "schema": schema,
-                "types": list(TYPES.values()),
+                "types": [
+                    {"name": TYPE_NAMES[value], "value": value}
+                    for value in TYPES.values()
+                ],
             },
             request=request,
         )
