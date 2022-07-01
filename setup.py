@@ -28,6 +28,6 @@ setup(
         "sqlite-utils>=2.21",
     ],
     extras_require={"test": ["pytest", "pytest-asyncio"]},
-    tests_require=["datasette-edit-schema[test]"],
     package_data={"datasette_edit_schema": ["templates/*.html", "static/*.js"]},
+    python_requires=">=3.7",
 )
