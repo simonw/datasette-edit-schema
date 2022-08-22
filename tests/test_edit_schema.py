@@ -166,22 +166,26 @@ async def test_add_column_errors(db_path, name, type, expected_error):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "post_data,expected_columns_dict,expected_order",
+    "post_data,action,expected_columns_dict,expected_order,expected_message",
     [
         # Change column type
         (
             {
                 "type.name": "REAL",
             },
+            "update_columns",
             {"name": float, "description": str},
             ["name", "description"],
+            "Changes to table have been saved",
         ),
         (
             {
                 "type.name": "INTEGER",
             },
+            "update_columns",
             {"name": int, "description": str},
             ["name", "description"],
+            "Changes to table have been saved",
         ),
         # Changing order
         (
@@ -189,8 +193,10 @@ async def test_add_column_errors(db_path, name, type, expected_error):
                 "sort.description": "0",
                 "sort.name": "2",
             },
+            "update_columns",
             {"name": str, "description": str},
             ["description", "name"],
+            "Changes to table have been saved",
         ),
         # Change names
         (
@@ -198,13 +204,60 @@ async def test_add_column_errors(db_path, name, type, expected_error):
                 "name.name": "name2",
                 "name.description": "description2",
             },
+            "update_columns",
             {"name2": str, "description2": str},
             ["name2", "description2"],
+            "Changes to table have been saved",
+        ),
+        # Add new columns
+        (
+            {
+                "add_column": "1",
+                "name": "new_text",
+                "type": "text",
+            },
+            None,
+            {"name": str, "description": str, "new_text": str},
+            ["name", "description", "new_text"],
+            "Column has been added",
+        ),
+        (
+            {
+                "add_column": "1",
+                "name": "new_integer",
+                "type": "integer",
+            },
+            None,
+            {"name": str, "description": str, "new_integer": int},
+            ["name", "description", "new_integer"],
+            "Column has been added",
+        ),
+        (
+            {
+                "add_column": "1",
+                "name": "new_float",
+                "type": "real",
+            },
+            None,
+            {"name": str, "description": str, "new_float": float},
+            ["name", "description", "new_float"],
+            "Column has been added",
+        ),
+        (
+            {
+                "add_column": "1",
+                "name": "new_blob",
+                "type": "blob",
+            },
+            None,
+            {"name": str, "description": str, "new_blob": bytes},
+            ["name", "description", "new_blob"],
+            "Column has been added",
         ),
     ],
 )
 async def test_transform_table(
-    db_path, post_data, expected_columns_dict, expected_order
+    db_path, action, post_data, expected_columns_dict, expected_order, expected_message
 ):
     ds = Datasette([db_path])
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
@@ -215,15 +268,19 @@ async def test_transform_table(
         await ds.client.get("/-/edit-schema/data/creatures", cookies=cookies)
     ).cookies["ds_csrftoken"]
     post_data["csrftoken"] = csrftoken
-    post_data["action"] = "update_columns"
+    if action:
+        post_data["action"] = action
     response = await ds.client.post(
         "/-/edit-schema/data/creatures",
         data=post_data,
         cookies=dict(cookies, ds_csrftoken=csrftoken),
     )
     assert response.status_code == 302
+    messages = ds.unsign(response.cookies["ds_messages"], "messages")
     assert table.columns_dict == expected_columns_dict
     assert [c.name for c in table.columns] == expected_order
+    assert len(messages) == 1
+    assert messages[0][0] == expected_message
 
 
 @pytest.mark.asyncio

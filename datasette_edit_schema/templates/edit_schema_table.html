@@ -116,10 +116,9 @@ html body label {
     <input type="hidden" name="add_column" value="1">
     <p><label>Name <input type="text" name="name"></label>
     <label>Column type <select name="type">
-        <option value="text">text</option>
-        <option value="integer">integer number</option>
-        <option value="float">floating point number</option>
-        <option value="blob">binary data</option>
+        {% for type in types %}
+            <option value="{{ type.value }}">{{ type.name }}</option>
+        {% endfor %}
     </select></label></p>
     <input type="submit" value="Add column">
 </form>

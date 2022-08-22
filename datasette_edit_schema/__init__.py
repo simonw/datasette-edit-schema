@@ -292,7 +292,8 @@ async def add_column(request, datasette, database, table, formdata):
 
     if error:
         datasette.add_message(request, error, datasette.ERROR)
-
+    else:
+        datasette.add_message(request, "Column has been added")
     return redirect
 
 
