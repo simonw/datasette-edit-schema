@@ -24,7 +24,7 @@ setup(
     packages=["datasette_edit_schema"],
     entry_points={"datasette": ["edit_schema = datasette_edit_schema"]},
     install_requires=[
-        "datasette>=0.59",
+        "datasette>=0.63",
         "sqlite-utils>=3.10",
     ],
     extras_require={"test": ["pytest", "pytest-asyncio"]},

@@ -71,6 +71,10 @@ html body label {
 </style>
 {% endblock %}
 
+{% block crumbs %}
+{{ crumbs.nav(request=request, database=database.name, table=table) }}
+{% endblock %}
+
 {% block content %}
 <h1>Edit table <a href="{{ base_url }}{{ database.name|quote_plus }}/{{ table|quote_plus }}">{{ database.name }}/{{ table }}</a></h1>
 

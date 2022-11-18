@@ -2,8 +2,8 @@
 
 {% block title %}Edit tables in {{ database.name }}.db{% endblock %}
 
-{% block extra_head %}
-
+{% block crumbs %}
+{{ crumbs.nav(request=request, database=database.name) }}
 {% endblock %}
 
 {% block content %}

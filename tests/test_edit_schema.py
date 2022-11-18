@@ -346,3 +346,28 @@ async def test_rename_table(db_path, new_name, should_work, expected_message):
     messages = ds.unsign(response.cookies["ds_messages"], "messages")
     assert len(messages) == 1
     assert messages[0][0] == expected_message
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path,expected_breadcrumbs",
+    (
+        ("/-/edit-schema/data", ['<a href="/">home</a>', '<a href="/data">data</a>']),
+        (
+            "/-/edit-schema/data/creatures",
+            [
+                '<a href="/">home</a>',
+                '<a href="/data">data</a>',
+                '<a href="/data/creatures">creatures</a>',
+            ],
+        ),
+    ),
+)
+async def test_breadcrumbs(db_path, path, expected_breadcrumbs):
+    ds = Datasette([db_path])
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    response = await ds.client.get(path, cookies=cookies)
+    assert response.status_code == 200
+    breadcrumbs = response.text.split('<p class="crumbs">')[1].split("</p>")[0]
+    for crumb in expected_breadcrumbs:
+        assert crumb in breadcrumbs
