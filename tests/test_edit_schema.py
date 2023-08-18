@@ -294,6 +294,36 @@ async def test_transform_table(
 
 
 @pytest.mark.asyncio
+async def test_drop_column_from_table_that_is_part_of_a_view(db_path):
+    # https://github.com/simonw/datasette-edit-schema/issues/35
+    ds = Datasette([db_path], pdb=True)
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    db = sqlite_utils.Database(db_path)
+    db.create_view("creatures_view", "select * from creatures")
+    table = db["creatures"]
+    assert table.columns_dict == {"name": str, "description": str}
+    csrftoken = (
+        await ds.client.get("/-/edit-schema/data/creatures", cookies=cookies)
+    ).cookies["ds_csrftoken"]
+    post_data = {
+        "delete.description": "1",
+        "csrftoken": csrftoken,
+        "action": "update_columns",
+    }
+    response = await ds.client.post(
+        "/-/edit-schema/data/creatures",
+        data=post_data,
+        cookies=dict(cookies, ds_csrftoken=csrftoken),
+    )
+    assert response.status_code == 302
+    messages = ds.unsign(response.cookies["ds_messages"], "messages")
+    assert table.columns_dict == {"name": str}
+    assert [c.name for c in table.columns] == ["name"]
+    assert len(messages) == 1
+    assert messages[0][0] == "Changes to table have been saved"
+
+
+@pytest.mark.asyncio
 async def test_static_assets(db_path):
     ds = Datasette([db_path])
     for path in (

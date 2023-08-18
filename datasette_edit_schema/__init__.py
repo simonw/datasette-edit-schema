@@ -188,12 +188,24 @@ async def edit_schema_table(request, datasette):
             order_pairs.sort(key=lambda p: int(p[1]))
 
             def transform_the_table(conn):
-                sqlite_utils.Database(conn)[table].transform(
-                    types=types,
-                    rename=rename,
-                    drop=drop,
-                    column_order=[p[0] for p in order_pairs],
-                )
+                # Run this in a transaction:
+                with conn:
+                    # We have to read all the views first, because we need to drop and recreate them
+                    db = sqlite_utils.Database(conn)
+                    views = {
+                        v.name: v.schema for v in db.views if table.lower() in v.schema
+                    }
+                    for view in views.keys():
+                        db[view].drop()
+                    db[table].transform(
+                        types=types,
+                        rename=rename,
+                        drop=drop,
+                        column_order=[p[0] for p in order_pairs],
+                    )
+                    # Now recreate the views
+                    for schema in views.values():
+                        db.execute(schema)
 
             await database.execute_write_fn(transform_the_table, block=True)
 
