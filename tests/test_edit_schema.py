@@ -254,6 +254,16 @@ async def test_add_column_errors(db_path, name, type, expected_error):
             ["name", "description", "new_blob"],
             "Column has been added",
         ),
+        # Drop column
+        (
+            {
+                "delete.description": "1",
+            },
+            "update_columns",
+            {"name": str},
+            ["name"],
+            "Changes to table have been saved",
+        ),
     ],
 )
 async def test_transform_table(
