@@ -3,7 +3,7 @@ from datasette.utils.asgi import Response, NotFound, Forbidden
 from datasette.utils import sqlite3
 from urllib.parse import quote_plus, unquote_plus
 import sqlite_utils
-from .utils import get_primary_keys, potential_foreign_keys
+from .utils import get_primary_keys, potential_foreign_keys, potential_primary_keys
 
 # Don't attempt to detect foreign keys on tables larger than this:
 FOREIGN_KEY_DETECTION_LIMIT = 10_000
@@ -221,8 +221,11 @@ async def edit_schema_table(request, datasette):
             return await update_foreign_keys(
                 request, datasette, database, table, formdata
             )
-
-        if "delete_table" in formdata:
+        elif formdata.get("action") == "update_primary_key":
+            return await update_primary_key(
+                request, datasette, database, table, formdata
+            )
+        elif "delete_table" in formdata:
             return await delete_table(request, datasette, database, table)
         elif "add_column" in formdata:
             return await add_column(request, datasette, database, table, formdata)
@@ -231,17 +234,17 @@ async def edit_schema_table(request, datasette):
         else:
             return Response.html("Unknown operation", status=400)
 
-    def get_columns_and_schema_and_fks(conn):
+    def get_columns_and_schema_and_fks_and_pks(conn):
         t = sqlite_utils.Database(conn)[table]
         pks = set(t.pks)
         columns = [
             {"name": column, "type": dtype, "is_pk": column in pks}
             for column, dtype in t.columns_dict.items()
         ]
-        return columns, t.schema, t.foreign_keys
+        return columns, t.schema, t.foreign_keys, t.pks
 
-    columns, schema, foreign_keys = await database.execute_fn(
-        get_columns_and_schema_and_fks
+    columns, schema, foreign_keys, pks = await database.execute_fn(
+        get_columns_and_schema_and_fks_and_pks
     )
     foreign_keys_by_column = {}
     for fk in foreign_keys:
@@ -281,6 +284,13 @@ async def edit_schema_table(request, datasette):
         for column in columns
         if not column["is_pk"]
     ]
+
+    # Anything not a float or an existing PK could be the next PK, but
+    # for smaller tables we cut those down to just unique columns
+    potential_pks = [
+        c["name"] for c in columns if c["type"] is not float and not c["is_pk"]
+    ]
+    potential_fks = []
     # Only scan for potential foreign keys if there are less than 10,000
     # rows - since execute_fn() does not yet support time limits
     if (
@@ -300,6 +310,13 @@ async def edit_schema_table(request, datasette):
         )
         for info in column_foreign_keys:
             info["suggestions"] = potential_fks.get(info["name"], [])
+        # Now do potential primary keys against non-float columns
+        non_float_columns = [
+            c["name"] for c in columns if c["type"] is not float and not c["is_pk"]
+        ]
+        potential_pks = await database.execute_fn(
+            lambda conn: potential_primary_keys(conn, table, non_float_columns)
+        )
 
     # Add 'options' to those
     for info in column_foreign_keys:
@@ -368,6 +385,9 @@ async def edit_schema_table(request, datasette):
                 ],
                 "foreign_keys": foreign_keys,
                 "column_foreign_keys": column_foreign_keys,
+                "potential_pks": potential_pks,
+                "is_rowid_table": bool(pks == ["rowid"]),
+                "current_pk": pks[0] if len(pks) == 1 else None,
             },
             request=request,
         )
@@ -515,4 +535,39 @@ async def update_foreign_keys(request, datasette, database, table, formdata):
         request,
         message,
     )
+    return Response.redirect(request.path)
+
+
+async def update_primary_key(request, datasette, database, table, formdata):
+    primary_key = formdata["primary_key"]
+    if not primary_key:
+        datasette.add_message(request, "Primary key is required", datasette.ERROR)
+        return Response.redirect(request.path)
+
+    def run(conn):
+        db = sqlite_utils.Database(conn)
+        with conn:
+            if primary_key not in db[table].columns_dict:
+                return "Column '{}' does not exist".format(primary_key)
+            # Make sure it's unique
+            sql = 'select count(*) - count(distinct("{}")) from "{}"'.format(
+                primary_key, table
+            )
+            should_be_zero = db.execute(sql).fetchone()[0]
+            if should_be_zero:
+                return "Column '{}' is not unique".format(primary_key)
+            db[table].transform(pk=primary_key)
+            return None
+
+    error = await database.execute_write_fn(run, block=True)
+    if error:
+        datasette.add_message(request, error, datasette.ERROR)
+    else:
+        datasette.add_message(
+            request,
+            "Primary key for '{}' is now '{}'".format(
+                table,
+                formdata["primary_key"],
+            ),
+        )
     return Response.redirect(request.path)

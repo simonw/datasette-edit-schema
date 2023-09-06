@@ -26,6 +26,9 @@ def potential_foreign_keys(conn, table_name, columns, other_table_pks):
     for column in columns:
         potentials[column] = []
         for other_table, other_column, _ in other_table_pks:
+            # Search for a value in this column that does not exist in the other table,
+            # terminate early as soon as we find one since that shows this is not a
+            # good foreign key candidate.
             query = """
                 select "{table}"."{column}"
                 from "{table}"
@@ -45,3 +48,41 @@ def potential_foreign_keys(conn, table_name, columns, other_table_pks):
             if cursor.fetchone() is None:
                 potentials[column].append((other_table, other_column))
     return potentials
+
+
+def potential_primary_keys(conn, table_name, columns, max_string_len=128):
+    # First we run a query to check the max length of each column + if it has any nulls
+    selects = []
+    for column in columns:
+        selects.append("max(length(\"{}\")) as 'maxlen.{}'".format(column, column))
+        selects.append(
+            "sum(case when \"{}\" is null then 1 else 0 end) as 'nulls.{}'".format(
+                column, column
+            )
+        )
+    sql = 'select {} from "{}"'.format(", ".join(selects), table_name)
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    row = cursor.fetchone()
+    potential_columns = []
+    for i, column in enumerate(columns):
+        maxlen = row[i * 2]
+        nulls = row[i * 2 + 1]
+        if maxlen < max_string_len and nulls == 0:
+            potential_columns.append(column)
+    if not potential_columns:
+        return []
+    # Count distinct values in each of our candidate columns
+    selects = ["count(*) as _count"]
+    for column in potential_columns:
+        selects.append("count(distinct \"{}\") as 'distinct.{}'".format(column, column))
+    sql = 'select {} from "{}"'.format(", ".join(selects), table_name)
+    cursor.execute(sql)
+    row = cursor.fetchone()
+    count = row[0]
+    potential_pks = []
+    for i, column in enumerate(potential_columns):
+        distinct = row[i + 1]
+        if distinct == count:
+            potential_pks.append(column)
+    return potential_pks
