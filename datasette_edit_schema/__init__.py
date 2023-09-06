@@ -3,6 +3,10 @@ from datasette.utils.asgi import Response, NotFound, Forbidden
 from datasette.utils import sqlite3
 from urllib.parse import quote_plus, unquote_plus
 import sqlite_utils
+from .utils import get_primary_keys, potential_foreign_keys
+
+# Don't attempt to detect foreign keys on tables larger than this:
+FOREIGN_KEY_DETECTION_LIMIT = 10_000
 
 
 @hookimpl
@@ -213,6 +217,11 @@ async def edit_schema_table(request, datasette):
 
             return Response.redirect(request.path)
 
+        if formdata.get("action") == "update_foreign_keys":
+            return await update_foreign_keys(
+                request, datasette, database, table, formdata
+            )
+
         if "delete_table" in formdata:
             return await delete_table(request, datasette, database, table)
         elif "add_column" in formdata:
@@ -222,14 +231,21 @@ async def edit_schema_table(request, datasette):
         else:
             return Response.html("Unknown operation", status=400)
 
-    def get_columns_and_schema(conn):
+    def get_columns_and_schema_and_fks(conn):
         t = sqlite_utils.Database(conn)[table]
+        pks = set(t.pks)
         columns = [
-            {"name": column, "type": dtype} for column, dtype in t.columns_dict.items()
+            {"name": column, "type": dtype, "is_pk": column in pks}
+            for column, dtype in t.columns_dict.items()
         ]
-        return columns, t.schema
+        return columns, t.schema, t.foreign_keys
 
-    columns, schema = await database.execute_fn(get_columns_and_schema)
+    columns, schema, foreign_keys = await database.execute_fn(
+        get_columns_and_schema_and_fks
+    )
+    foreign_keys_by_column = {}
+    for fk in foreign_keys:
+        foreign_keys_by_column.setdefault(fk.column, []).append(fk)
 
     columns_display = [
         {
@@ -238,6 +254,105 @@ async def edit_schema_table(request, datasette):
         }
         for c in columns
     ]
+
+    # To detect potential foreign keys we need (table, column) for the
+    # primary keys on every other table
+    other_primary_keys = [
+        pair for pair in await database.execute_fn(get_primary_keys) if pair[0] != table
+    ]
+    integer_primary_keys = [
+        (pair[0], pair[1]) for pair in other_primary_keys if pair[2] is int
+    ]
+    string_primary_keys = [
+        (pair[0], pair[1]) for pair in other_primary_keys if pair[2] is str
+    ]
+
+    column_foreign_keys = [
+        {
+            "name": column["name"],
+            "foreign_key": foreign_keys_by_column.get(column["name"])[0]
+            if foreign_keys_by_column.get(column["name"])
+            else None,
+            "suggestions": [],
+            "options": integer_primary_keys
+            if column["type"] is int
+            else string_primary_keys,
+        }
+        for column in columns
+        if not column["is_pk"]
+    ]
+    # Only scan for potential foreign keys if there are less than 10,000
+    # rows - since execute_fn() does not yet support time limits
+    if (
+        await database.execute(
+            'select count(*) from (select 1 from "{}" limit {})'.format(
+                table, FOREIGN_KEY_DETECTION_LIMIT
+            )
+        )
+    ).single_value() < FOREIGN_KEY_DETECTION_LIMIT:
+        potential_fks = await database.execute_fn(
+            lambda conn: potential_foreign_keys(
+                conn,
+                table,
+                [c["name"] for c in columns if not c["is_pk"]],
+                other_primary_keys,
+            )
+        )
+        for info in column_foreign_keys:
+            info["suggestions"] = potential_fks.get(info["name"], [])
+
+    # Add 'options' to those
+    for info in column_foreign_keys:
+        options = []
+        seen = set()
+        info["html_options"] = options
+        # Reshuffle so suggestions are at the top
+        if info["foreign_key"]:
+            options.append(
+                {
+                    "name": "{}.{} (current)".format(
+                        info["foreign_key"].other_table,
+                        info["foreign_key"].other_column,
+                    ),
+                    "value": "{}.{}".format(
+                        info["foreign_key"].other_table,
+                        info["foreign_key"].other_column,
+                    ),
+                    "selected": True,
+                }
+            )
+            seen.add(
+                "{}:{}".format(
+                    info["foreign_key"].other_table, info["foreign_key"].other_column
+                )
+            )
+        # Now add suggestions
+        for suggested_table, suggested_column in info["suggestions"]:
+            if not (
+                info["foreign_key"]
+                and info["foreign_key"].other_column == suggested_column
+            ):
+                options.append(
+                    {
+                        "name": "{}.{} (suggested)".format(
+                            suggested_table, suggested_column
+                        ),
+                        "value": "{}.{}".format(suggested_table, suggested_column),
+                        "selected": False,
+                    }
+                )
+                seen.add("{}:{}".format(suggested_table, suggested_column))
+                info["suggested"] = "{}.{}".format(suggested_table, suggested_column)
+        # And the rest
+        for rest_table, rest_column in info["options"]:
+            if "{}:{}".format(rest_table, rest_column) not in seen:
+                options.append(
+                    {
+                        "name": "{}.{}".format(rest_table, rest_column),
+                        "value": "{}.{}".format(rest_table, rest_column),
+                        "selected": False,
+                    }
+                )
 
     return Response.html(
         await datasette.render_template(
@@ -251,6 +366,8 @@ async def edit_schema_table(request, datasette):
                     {"name": TYPE_NAMES[value], "value": value}
                     for value in TYPES.values()
                 ],
+                "foreign_keys": foreign_keys,
+                "column_foreign_keys": column_foreign_keys,
             },
             request=request,
         )
@@ -350,3 +467,52 @@ async def rename_table(request, datasette, database, table, formdata):
     return Response.redirect(
         "/-/edit-schema/{}/{}".format(quote_plus(database.name), quote_plus(new_name))
     )
+
+
+async def update_foreign_keys(request, datasette, database, table, formdata):
+    new_fks = {
+        key[3:]: value
+        for key, value in formdata.items()
+        if key.startswith("fk.") and value.strip()
+    }
+    existing_fks = {
+        fk.column: fk.other_table + "." + fk.other_column
+        for fk in await database.execute_fn(
+            lambda conn: sqlite_utils.Database(conn)[table].foreign_keys
+        )
+    }
+    if new_fks == existing_fks:
+        datasette.add_message(request, "No changes to foreign keys", datasette.WARNING)
+        return Response.redirect(request.path)
+
+    # Need that in (column, other_table, other_column) format
+    fks = []
+    for column, other_table_and_column in new_fks.items():
+        split = other_table_and_column.split(".")
+        fks.append(
+            (
+                column,
+                split[0],
+                split[1],
+            )
+        )
+
+    # Update foreign keys
+    def run(conn):
+        db = sqlite_utils.Database(conn)
+        with conn:
+            db[table].transform(foreign_keys=fks)
+
+    await database.execute_write_fn(run, block=True)
+    summary = ", ".join("{} → {}.{}".format(*fk) for fk in fks)
+    if summary:
+        message = "Foreign keys updated{}".format(
+            " to {}".format(summary) if summary else ""
+        )
+    else:
+        message = "Foreign keys removed"
+    datasette.add_message(
+        request,
+        message,
+    )
+    return Response.redirect(request.path)

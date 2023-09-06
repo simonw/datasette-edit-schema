@@ -120,6 +120,34 @@ html body label {
     <input type="submit" value="Add column">
 </form>
 
+<h2>Update foreign key relationships</h2>
+
+<p>Configure foreign keys on columns so Datasette can link related tables together.</p>
+
+<style type="text/css">
+table.foreign-key-options td {
+    white-space: normal;
+}
+</style>
+
+<form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
+    <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
+    <input type="hidden" name="action" value="update_foreign_keys">
+    <table class="foreign-key-options">
+    {% for column in column_foreign_keys %}
+      <tr>
+        <td><label for="fk.{{ column.name }}">{{ column.name }}</label></td>
+        <td><select id="fk.{{ column.name }}" name="fk.{{ column.name }}"><option value="">-- {% if not column.suggested and not column.foreign_key %}no suggestions{% else %}none{% endif %} --</option>
+            {% for option in column.html_options %}<option value="{{ option.value }}" {% if option.selected %} selected="selected"{% endif %}>{{ option.name }}</option>{% endfor %}
+            </select>
+            {% if column.suggested %}<p style="margin: 0; font-size: 0.8em">Suggested: {{ column.suggested }}</p>{% endif %}
+            </td>
+      </tr>
+    {% endfor %}
+    </table>
+    <input type="submit" value="Update foreign keys">
+</form>
+
 <h2>Delete table</h2>
 
 <form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
