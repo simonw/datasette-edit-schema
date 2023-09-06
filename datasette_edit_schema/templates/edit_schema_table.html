@@ -148,6 +148,27 @@ table.foreign-key-options td {
     <input type="submit" value="Update foreign keys">
 </form>
 
+{% if potential_pks %}
+    <h2>{% if is_rowid_table %}Set a primary key{% else %}Change the primary key{% endif %}</h2>
+
+    <p>The primary key column uniquely identifies each row in the table.</p>
+
+    <form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
+        <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
+        <input type="hidden" name="action" value="update_primary_key">
+        <label for="primary_key">Primary key column</label>
+        <select id="primary_key" name="primary_key">
+            {% if current_pk %}
+                <option selected="selected" value="{{ current_pk }}">{{ current_pk }} (current)</option>
+            {% endif %}
+            {% for pk in potential_pks %}
+                <option>{{ pk }}</option>
+            {% endfor %}
+        </select>
+        <p><input type="submit" value="Set primary key"></p>
+    </form>
+{% endif %}
+
 <h2>Delete table</h2>
 
 <form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
