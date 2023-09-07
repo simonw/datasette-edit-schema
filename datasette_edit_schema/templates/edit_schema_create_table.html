@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Create a table in {{ database.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+html body input[type="text"],
+html body input[type="search"] {
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    width: 60%;
+    padding: 9px 4px;
+    display: inline-block;
+    font-size: 1em;
+    font-family: Helvetica, sans-serif;
+}
+select {
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    padding: 9px 4px;
+    display: inline-block;
+    font-size: 1em;
+    font-family: Helvetica, sans-serif;
+}
+html body label {
+    font-weight: bold;
+    display: inline-block;
+    width: auto;
+}
+.editable-columns {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+}
+.editable-columns li {
+    /* Without this the element width reduces while being dragged: */
+    width: 100%;
+    margin-bottom: 5px;
+}
+.sort-order {
+    display: none;
+}
+.handle {
+  content: '....';
+  width: 10px;
+  height: 20px;
+  display: inline-block;
+  overflow: hidden;
+  line-height: 5px;
+  padding: 3px 4px;
+  cursor: move;
+  cursor: grab;
+  vertical-align: middle;
+  margin-top: -.7em;
+  margin-right: .3em;
+  font-size: 12px;
+  font-family: sans-serif;
+  letter-spacing: 2px;
+  color: #666;
+  text-shadow: 1px 0 1px black;
+}
+.handle::after {
+  content: '.. .. .. ..';
+}
+</style>
+<script src="{{ base_url }}-/static-plugins/datasette-edit-schema/draggable.1.0.0-beta.11.bundle.min.js"></script>
+<style>
+.draggable-source--is-dragging {
+    visibility: hidden;
+}
+</style>
+{% endblock %}
+
+{% block crumbs %}
+{{ crumbs.nav(request=request, database=database.name) }}
+{% endblock %}
+
+{% block content %}
+<h1>Create a table in <a href="{{ base_url }}{{ database.name|quote_plus }}">{{ database.name }}</a></h1>
+
+<form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/-/create" method="post">
+<p>
+  <label for="table_name">Name:</label>
+  <input type="text" required="1" id="table_name" name="table_name" size="20" style="width: 30%">
+</p>
+<ul class="editable-columns">
+  <!-- primary key comes first and is not sortable -->
+  <li>
+    <input style="width: 30%" type="text" size="10" name="primary_key_name" value="id">
+    <label>Type: <select name="primary_key_type">
+      <option value="INTEGER" selected="selected">Integer</option>
+      <option value="TEXT">Text</option>
+    </select></label>
+    <strong>&nbsp;Primary key</strong>
+</li>
+</ul>
+<ul class="sortable-columns editable-columns">
+{% for column in columns %}
+    <li>
+        <input style="width: 30%" type="text" size="10" name="column-name.{{ loop.index }}" value="">
+        <label>Type: <select name="column-type.{{ loop.index }}">
+            {% for type in types %}
+                <option value="{{ type.value }}">{{ type.name }}</option>
+            {% endfor %}
+        </select></label>
+        <label class="sort-order">Sort order
+            <input type="number" class="column-sort-input" size="2" name="column-sort.{{ loop.index }}" value="{{ loop.index }}">
+        </label>
+        <span class="handle"></span>
+    </li>
+{% endfor %}
+</ul>
+<p>
+    <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
+    <input type="submit" value="Create table">
+</p>
+</form>
+
+<script>
+let sortableColumns = new Draggable.Sortable(document.querySelectorAll('ul.sortable-columns'), {
+    draggable: 'li',
+    handle: '.handle'
+});
+sortableColumns.on('sortable:stop', (ev) => {
+    // Update the .column-sort-input inputs
+    setTimeout(() => Array.from(document.querySelectorAll('.column-sort-input')).forEach((el, i) => {
+        el.value = i + 1;
+    }), 200);
+});
+</script>
+
+{% endblock %}

@@ -40,10 +40,30 @@ def table_actions(datasette, actor, database, table):
 
 
 @hookimpl
+def database_actions(datasette, actor, database):
+    async def inner():
+        if not await datasette.permission_allowed(
+            actor, "edit-schema", resource=database, default=False
+        ):
+            return []
+        return [
+            {
+                "href": datasette.urls.path(
+                    "/-/edit-schema/{}/-/create".format(database)
+                ),
+                "label": "Create a table",
+            }
+        ]
+
+    return inner
+
+
+@hookimpl
 def register_routes():
     return [
         (r"^/-/edit-schema$", edit_schema_index),
         (r"^/-/edit-schema/(?P<database>[^/]+)$", edit_schema_database),
+        (r"^/-/edit-schema/(?P<database>[^/]+)/-/create$", edit_schema_create_table),
         (r"^/-/edit-schema/(?P<database>[^/]+)/(?P<table>[^/]+)$", edit_schema_table),
     ]
 
@@ -140,6 +160,81 @@ async def edit_schema_database(request, datasette):
             {
                 "database": database,
                 "tables": tables,
+            },
+            request=request,
+        )
+    )
+
+
+async def edit_schema_create_table(request, datasette):
+    databases = get_databases(datasette)
+    database_name = request.url_vars["database"]
+    await check_permissions(datasette, request, database_name)
+    try:
+        db = datasette.get_database(database_name)
+    except KeyError:
+        raise NotFound("Database not found")
+
+    if request.method == "POST":
+        formdata = await request.post_vars()
+        table_name = formdata.get("table_name") or ""
+        columns = {}
+        for key, value in formdata.items():
+            if key.startswith("column-name"):
+                idx = key.split(".")[-1]
+                columns[idx] = {"name": value}
+            elif key.startswith("column-type"):
+                idx = key.split(".")[-1]
+                columns[idx]["type"] = value
+            elif key.startswith("column-sort"):
+                idx = key.split(".")[-1]
+                columns[idx]["sort"] = int(value)
+
+        # Sort columns based on sort order
+        sorted_columns = sorted(columns.values(), key=lambda x: x["sort"])
+
+        # Dictionary to use with .create()
+        primary_key_name = formdata["primary_key_name"].strip()
+        create = {primary_key_name: REV_TYPES[formdata["primary_key_type"]]}
+
+        for column in sorted_columns:
+            if column["name"].strip():
+                create[column["name"].strip()] = REV_TYPES[column["type"]]
+
+        def create_the_table(conn):
+            db = sqlite_utils.Database(conn)
+            if not table_name.strip():
+                return "Table name is required"
+            if db[table_name].exists():
+                return "Table already exists"
+            try:
+                db[table_name].create(
+                    create, pk=primary_key_name, not_null=(primary_key_name,)
+                )
+            except Exception as e:
+                return str(e)
+
+        error = await db.execute_write_fn(create_the_table, block=True)
+
+        if error:
+            datasette.add_message(request, str(error), datasette.ERROR)
+            path = request.path
+        else:
+            datasette.add_message(request, "Table has been created")
+            path = datasette.urls.table(database_name, table_name)
+
+        return Response.redirect(path)
+
+    return Response.html(
+        await datasette.render_template(
+            "edit_schema_create_table.html",
+            {
+                "database": db,
+                "columns": [{"name": "Column {}".format(i)} for i in range(1, 10)],
+                "types": [
+                    {"name": TYPE_NAMES[value], "value": value}
+                    for value in TYPES.values()
+                ],
             },
             request=request,
         )

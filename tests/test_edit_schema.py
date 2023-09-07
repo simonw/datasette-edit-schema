@@ -652,3 +652,80 @@ def get_options(soup, name):
         }
         for o in select.find_all("option")
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "post_data,expected_message,expected_schema",
+    (
+        (
+            {"primary_key_name": "id", "primary_key_type": "INTEGER"},
+            "Table name is required",
+            None,
+        ),
+        (
+            {
+                "primary_key_name": "id",
+                "primary_key_type": "INTEGER",
+                "table_name": "museums",
+            },
+            "Table already exists",
+            None,
+        ),
+        (
+            {
+                "primary_key_name": "id",
+                "primary_key_type": "INTEGER",
+                "table_name": "foo",
+            },
+            "Table has been created",
+            {"id": int},
+        ),
+        (
+            {
+                "primary_key_name": "my_pk",
+                "primary_key_type": "TEXT",
+                "table_name": "foo",
+                "column-name.0": "col1_text",
+                "column-type.0": "TEXT",
+                "column-sort.0": "2",
+                "column-name.1": "col2_int",
+                "column-type.1": "INTEGER",
+                "column-sort.1": "1",
+                "column-name.2": "col3_real",
+                "column-type.2": "REAL",
+                "column-sort.2": "3",
+                "column-name.3": "col4_blob",
+                "column-type.3": "BLOB",
+                "column-sort.3": "4",
+            },
+            "Table has been created",
+            {
+                "my_pk": str,
+                "col2_int": int,
+                "col1_text": str,
+                "col3_real": float,
+                "col4_blob": bytes,
+            },
+        ),
+    ),
+)
+async def test_create_table(db_path, post_data, expected_message, expected_schema):
+    ds = Datasette([db_path])
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    csrftoken_r = await ds.client.get("/-/edit-schema/data/-/create", cookies=cookies)
+    csrftoken = csrftoken_r.cookies["ds_csrftoken"]
+    cookies["ds_csrftoken"] = csrftoken
+    post_data["csrftoken"] = csrftoken
+    response = await ds.client.post(
+        "/-/edit-schema/data/-/create",
+        data=post_data,
+        cookies=cookies,
+    )
+    assert response.status_code == 302
+    messages = ds.unsign(response.cookies["ds_messages"], "messages")
+    assert len(messages) == 1
+    assert messages[0][0] == expected_message
+    if expected_schema is not None:
+        db = sqlite_utils.Database(db_path)
+        assert db[post_data["table_name"]].columns_dict == expected_schema
