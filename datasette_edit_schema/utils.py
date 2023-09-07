@@ -66,8 +66,8 @@ def potential_primary_keys(conn, table_name, columns, max_string_len=128):
     row = cursor.fetchone()
     potential_columns = []
     for i, column in enumerate(columns):
-        maxlen = row[i * 2]
-        nulls = row[i * 2 + 1]
+        maxlen = row[i * 2] or 0
+        nulls = row[i * 2 + 1] or 0
         if maxlen < max_string_len and nulls == 0:
             potential_columns.append(column)
     if not potential_columns:

@@ -19,6 +19,7 @@ def db_and_path(tmpdir):
         ]
     )
     db["other_table"].insert({"foo": "bar"})
+    db["empty_table"].create({"id": int, "name": str}, pk="id")
     # Tables for testing foreign key editing
     db["museums"].insert_all(
         [
@@ -547,6 +548,15 @@ async def test_edit_form_shows_suggestions(db_path):
             ],
         ),
     ]
+
+
+@pytest.mark.asyncio
+async def test_edit_form_for_empty_table(db_path):
+    # https://github.com/simonw/datasette-edit-schema/issues/38
+    ds = Datasette([db_path])
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    response = await ds.client.get("/-/edit-schema/data/empty_table", cookies=cookies)
+    assert response.status_code == 200
 
 
 @pytest.mark.asyncio
