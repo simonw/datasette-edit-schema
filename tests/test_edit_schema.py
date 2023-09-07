@@ -1,14 +1,15 @@
-import datasette
 from datasette.app import Datasette
+from datasette_edit_schema.utils import potential_foreign_keys, get_primary_keys
 import sqlite_utils
 import pytest
 import re
+from bs4 import BeautifulSoup
 
 whitespace = re.compile(r"\s+")
 
 
 @pytest.fixture
-def db_path(tmpdir):
+def db_and_path(tmpdir):
     path = str(tmpdir / "data.db")
     db = sqlite_utils.Database(path)
     db["creatures"].insert_all(
@@ -18,7 +19,77 @@ def db_path(tmpdir):
         ]
     )
     db["other_table"].insert({"foo": "bar"})
-    return path
+    # Tables for testing foreign key editing
+    db["museums"].insert_all(
+        [
+            {
+                "id": "moma",
+                "name": "Museum of Modern Art",
+                "city_id": "nyc",
+            },
+            {
+                "id": "tate",
+                "name": "Tate Modern",
+                "city_id": "london",
+            },
+            {
+                "id": "exploratorium",
+                "name": "Exploratorium",
+                "city_id": "sf",
+            },
+            {
+                "id": "cablecars",
+                "name": "Cable Car Museum",
+                "city_id": "sf",
+            },
+        ],
+        pk="id",
+    )
+    db["cities"].insert_all(
+        [
+            {
+                "id": "nyc",
+                "name": "New York City",
+            },
+            {
+                "id": "london",
+                "name": "London",
+            },
+            {
+                "id": "sf",
+                "name": "San Francisco",
+            },
+        ],
+        pk="id",
+    )
+    db["distractions"].insert_all(
+        [
+            {
+                "id": "nyc",
+                "name": "Nice Yummy Cake",
+            }
+        ],
+        pk="id",
+    )
+    db["has_foreign_keys"].insert(
+        {
+            "id": 1,
+            "distraction_id": "nyc",
+        },
+        pk="id",
+        foreign_keys=(("distraction_id", "distractions"),),
+    )
+    return db, path
+
+
+@pytest.fixture
+def db_path(db_and_path):
+    return db_and_path[1]
+
+
+@pytest.fixture
+def db(db_and_path):
+    return db_and_path[0]
 
 
 @pytest.mark.asyncio
@@ -411,3 +482,160 @@ async def test_breadcrumbs(db_path, path, expected_breadcrumbs):
     breadcrumbs = response.text.split('<p class="crumbs">')[1].split("</p>")[0]
     for crumb in expected_breadcrumbs:
         assert crumb in breadcrumbs
+
+
+def test_potential_foreign_keys(db):
+    potentials = potential_foreign_keys(
+        db.conn,
+        "museums",
+        ["name", "city_id"],
+        get_primary_keys(db.conn),
+    )
+    assert potentials == {"name": [], "city_id": [("cities", "id")]}
+
+
+@pytest.mark.asyncio
+async def test_edit_form_shows_suggestions(db_path):
+    # Test for suggested foreign keys and primary keys
+    ds = Datasette([db_path])
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    response = await ds.client.get("/-/edit-schema/data/museums", cookies=cookies)
+    assert response.status_code == 200
+    # Should suggest two of the three columns as primary keys
+    soup = BeautifulSoup(response.text, "html5lib")
+    assert "<h2>Change the primary key</h2>" in response.text
+    pk_options = get_options(soup, "primary_key")
+    assert pk_options == [
+        {"value": "id", "text": "id (current)", "selected": True},
+        {"value": "name", "text": "name", "selected": False},
+    ]
+
+    # Test foreign key suggestions
+    selects = soup.find_all("select", attrs={"name": re.compile("^fk.")})
+    select_options = [(s["name"], get_options(soup, s["name"])) for s in selects]
+    assert select_options == [
+        (
+            "fk.name",
+            [
+                {
+                    "value": "-- no suggestions --",
+                    "text": "-- no suggestions --",
+                    "selected": False,
+                },
+                {"value": "cities.id", "text": "cities.id", "selected": False},
+                {
+                    "value": "distractions.id",
+                    "text": "distractions.id",
+                    "selected": False,
+                },
+            ],
+        ),
+        (
+            "fk.city_id",
+            [
+                {"value": "-- none --", "text": "-- none --", "selected": False},
+                {
+                    "value": "cities.id",
+                    "text": "cities.id (suggested)",
+                    "selected": False,
+                },
+                {
+                    "value": "distractions.id",
+                    "text": "distractions.id",
+                    "selected": False,
+                },
+            ],
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "table,post_data,expected_fks,expected_pk,expected_message",
+    (
+        # Foreign key edit
+        (
+            "museums",
+            {"action": "update_foreign_keys", "fk.city_id": "cities.id"},
+            [("museums", "city_id", "cities", "id")],
+            ["id"],
+            "Foreign keys updated to city_id → cities.id",
+        ),
+        # No changes to foreign keys
+        (
+            "museums",
+            {"action": "update_foreign_keys"},
+            [],
+            ["id"],
+            "No changes to foreign keys",
+        ),
+        # Remove foreign keys
+        (
+            "has_foreign_keys",
+            {"action": "update_foreign_keys", "fk.distraction_id": ""},
+            [],
+            ["id"],
+            "Foreign keys removed",
+        ),
+        # Point existing foreign key at something else
+        (
+            "has_foreign_keys",
+            {"action": "update_foreign_keys", "fk.distraction_id": "cities.id"},
+            [("has_foreign_keys", "distraction_id", "cities", "id")],
+            ["id"],
+            "Foreign keys updated to distraction_id → cities.id",
+        ),
+        # Change primary key in a way that works
+        (
+            "museums",
+            {"action": "update_primary_key", "primary_key": "name"},
+            [],
+            ["name"],
+            "Primary key for 'museums' is now 'name'",
+        ),
+        # And a way that returns an error
+        (
+            "museums",
+            {"action": "update_primary_key", "primary_key": "city_id"},
+            [],
+            ["id"],
+            "Column 'city_id' is not unique",
+        ),
+    ),
+)
+async def test_edit_keys(
+    db_path, table, post_data, expected_fks, expected_pk, expected_message
+):
+    ds = Datasette([db_path])
+    # Grab a csrftoken
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    csrftoken_r = await ds.client.get(
+        "/-/edit-schema/data/{}".format(table), cookies=cookies
+    )
+    csrftoken = csrftoken_r.cookies["ds_csrftoken"]
+    cookies["ds_csrftoken"] = csrftoken
+    post_data["csrftoken"] = csrftoken
+    response = await ds.client.post(
+        "/-/edit-schema/data/{}".format(table),
+        data=post_data,
+        cookies=cookies,
+    )
+    assert response.status_code == 302
+    messages = ds.unsign(response.cookies["ds_messages"], "messages")
+    assert len(messages) == 1
+    assert messages[0][0] == expected_message
+    db = sqlite_utils.Database(db_path)
+    assert db[table].foreign_keys == expected_fks
+    assert db[table].pks == expected_pk
+
+
+def get_options(soup, name):
+    select = soup.find("select", attrs={"name": name})
+    return [
+        {
+            "value": o.get("value") or o.text,
+            "text": o.text,
+            "selected": bool(o.get("selected")),
+        }
+        for o in select.find_all("option")
+    ]
