@@ -27,7 +27,7 @@ setup(
         "datasette>=0.63",
         "sqlite-utils>=3.35",
     ],
-    extras_require={"test": ["pytest", "pytest-asyncio", "beautifulsoup4"]},
+    extras_require={"test": ["pytest", "pytest-asyncio", "beautifulsoup4", "html5lib"]},
     package_data={"datasette_edit_schema": ["templates/*.html", "static/*.js"]},
     python_requires=">=3.7",
 )

@@ -15,6 +15,8 @@ Datasette plugin for modifying table schemas
 * Re-order the columns in a table
 * Rename a table
 * Delete a table
+* Change the primary key of a table to another column containing unique values
+* Update the foreign key constraints on a table
 
 ## Installation
 
