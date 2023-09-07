@@ -293,13 +293,14 @@ async def edit_schema_table(request, datasette):
     potential_fks = []
     # Only scan for potential foreign keys if there are less than 10,000
     # rows - since execute_fn() does not yet support time limits
-    if (
+    limited_count = (
         await database.execute(
             'select count(*) from (select 1 from "{}" limit {})'.format(
                 table, FOREIGN_KEY_DETECTION_LIMIT
             )
         )
-    ).single_value() < FOREIGN_KEY_DETECTION_LIMIT:
+    ).single_value()
+    if limited_count and limited_count < FOREIGN_KEY_DETECTION_LIMIT:
         potential_fks = await database.execute_fn(
             lambda conn: potential_foreign_keys(
                 conn,

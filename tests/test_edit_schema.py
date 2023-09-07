@@ -558,6 +558,9 @@ async def test_edit_form_for_empty_table(db_path):
     response = await ds.client.get("/-/edit-schema/data/empty_table", cookies=cookies)
     assert response.status_code == 200
 
+    # It shouldn't suggest any foreign keys, since there are no records
+    assert " (suggested)" not in response.text
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
