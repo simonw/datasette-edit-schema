@@ -185,7 +185,7 @@ table.foreign-key-options td {
 
 <h2>Delete table</h2>
 
-<form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
+<form id="delete-table-form" action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
     <input type="hidden" name="delete_table" value="1">
     <input type="submit" value="Delete this table">
@@ -204,6 +204,13 @@ sortableColumns.on('sortable:stop', (ev) => {
     setTimeout(() => Array.from(document.querySelectorAll('.column-sort-input')).forEach((el, i) => {
         el.value = i + 1;
     }), 200);
+});
+
+document.getElementById('delete-table-form').addEventListener('submit', function(event) {
+    const userConfirmation = confirm("Are you sure you want to delete this table? This cannot be reversed.");
+    if (!userConfirmation) {
+        event.preventDefault();
+    }
 });
 </script>
 
