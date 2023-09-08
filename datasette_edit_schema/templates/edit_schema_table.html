@@ -96,6 +96,11 @@ html body label {
             <input  name="delete.{{ column.name }}" type="checkbox">
         </label>
         <span class="handle"></span>
+        {% if column.examples %}
+            <div style="width: 60%; font-size: 0.7em;">{{ ", ".join(column.examples) }}</div>
+        {% else %}
+            <div style="width: 60%; font-size: 0.7em; color: #666">- no example values -</div>
+        {% endif %}
     </li>
 {% endfor %}
 </ul>

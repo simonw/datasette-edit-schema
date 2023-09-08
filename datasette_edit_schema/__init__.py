@@ -3,7 +3,12 @@ from datasette.utils.asgi import Response, NotFound, Forbidden
 from datasette.utils import sqlite3
 from urllib.parse import quote_plus, unquote_plus
 import sqlite_utils
-from .utils import get_primary_keys, potential_foreign_keys, potential_primary_keys
+from .utils import (
+    examples_for_columns,
+    get_primary_keys,
+    potential_foreign_keys,
+    potential_primary_keys,
+)
 
 # Don't attempt to detect foreign keys on tables larger than this:
 FOREIGN_KEY_DETECTION_LIMIT = 10_000
@@ -345,10 +350,16 @@ async def edit_schema_table(request, datasette):
     for fk in foreign_keys:
         foreign_keys_by_column.setdefault(fk.column, []).append(fk)
 
+    # Load example data for the columns - truncated first five non-blank values
+    column_examples = await database.execute_fn(
+        lambda conn: examples_for_columns(conn, table)
+    )
+
     columns_display = [
         {
             "name": c["name"],
             "type": TYPES[c["type"]],
+            "examples": column_examples.get(c["name"]) or {},
         }
         for c in columns
     ]

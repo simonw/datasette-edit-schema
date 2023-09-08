@@ -1,5 +1,9 @@
 from datasette.app import Datasette
-from datasette_edit_schema.utils import potential_foreign_keys, get_primary_keys
+from datasette_edit_schema.utils import (
+    potential_foreign_keys,
+    get_primary_keys,
+    examples_for_columns,
+)
 import sqlite_utils
 import pytest
 import re
@@ -729,3 +733,28 @@ async def test_create_table(db_path, post_data, expected_message, expected_schem
     if expected_schema is not None:
         db = sqlite_utils.Database(db_path)
         assert db[post_data["table_name"]].columns_dict == expected_schema
+
+
+def test_examples_for_columns():
+    db = sqlite_utils.Database(memory=True)
+    db["examples"].insert_all(
+        [
+            {"id": 1, "name": "Name 1", "age": 15, "weight": None, "photo": b"Blob"},
+            {"id": 2, "name": None, "age": 25, "weight": 2.3, "photo": b"Blob2"},
+            {"id": 3, "name": "", "age": None, "weight": 2.0, "photo": b"Blob3"},
+            {"id": 4, "name": "Name 4", "age": 18, "weight": 1.7, "photo": b"Blob4"},
+            {"id": 5, "name": "Name 5", "age": 21, "weight": None, "photo": b"Blob5"},
+            {"id": 6, "name": "Name 6", "age": 35, "weight": 2.5, "photo": b"Blob6"},
+            {"id": 7, "name": "Name 7", "age": 28, "weight": 1.9, "photo": b"Blob7"},
+            {"id": 8, "name": "Name 8", "age": 22, "weight": 2.1, "photo": b"Blob8"},
+            {"id": 9, "name": "Name 9", "age": 20, "weight": 1.5, "photo": b"Blob9"},
+            {"id": 10, "name": "Name 10", "age": 40, "weight": 2.8, "photo": b"Blob10"},
+        ]
+    )
+    examples = examples_for_columns(db.conn, "examples")
+    assert examples == {
+        "age": ["15", "25", "18", "21", "35"],
+        "id": ["1", "2", "3", "4", "5"],
+        "name": ["Name 1", "Name 4", "Name 5", "Name 6", "Name 7"],
+        "weight": ["2.3", "2.0", "1.7", "2.5", "1.9"],
+    }

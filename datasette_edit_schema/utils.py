@@ -1,4 +1,5 @@
 import sqlite_utils
+import json
 
 
 def get_primary_keys(conn):
@@ -86,3 +87,39 @@ def potential_primary_keys(conn, table_name, columns, max_string_len=128):
         if distinct == count:
             potential_pks.append(column)
     return potential_pks
+
+
+def examples_for_columns(conn, table_name):
+    columns = sqlite_utils.Database(conn)[table_name].columns_dict.keys()
+    ctes = [f'rows as (select * from "{table_name}" limit 1000)']
+    unions = []
+    for i, column in enumerate(columns):
+        ctes.append(
+            f'col{i} as (select distinct "{column}" from rows '
+            f'where ("{column}" is not null and "{column}" != "") limit 5)'
+        )
+        unions.append(f"select '{column}' as label, \"{column}\" as value from col{i}")
+    ctes.append("strings as ({})".format("\nunion all\n".join(unions)))
+    ctes.append(
+        """
+    truncated_strings as (
+    select 
+        label,
+        case 
+        when length(value) > 30 then substr(value, 1, 30) || '...'
+        else value
+        end as value
+    from strings
+    where typeof(value) != 'blob'
+    )
+    """
+    )
+    sql = (
+        "with {ctes} ".format(ctes=",\n".join(ctes))
+        + "select label, json_group_array(value) as examples "
+        "from truncated_strings group by label"
+    )
+    output = {}
+    for column, examples in conn.execute(sql).fetchall():
+        output[column] = list(map(str, json.loads(examples)))
+    return output
