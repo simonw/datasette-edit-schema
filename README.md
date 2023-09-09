@@ -21,9 +21,9 @@ Datasette plugin for modifying table schemas
 ## Installation
 
 Install this plugin in the same environment as Datasette.
-
-    $ pip install datasette-edit-schema
-
+```bash
+pip install datasette-edit-schema
+```
 ## Usage
 
 Navigate to `/-/edit-schema/dbname/tablename` on your Datasette instance to edit a specific table.
@@ -49,19 +49,20 @@ These permission checks will call the `permission_allowed()` plugin hook with th
 ## Development
 
 To set up this plugin locally, first checkout the code. Then create a new virtual environment:
-
-    cd datasette-edit-schema
-    python3 -mvenv venv
-    source venv/bin/activate
-
+```bash
+cd datasette-edit-schema
+python3 -mvenv venv
+source venv/bin/activate
+```
 Or if you are using `pipenv`:
-
-    pipenv shell
-
+```bash
+pipenv shell
+```
 Now install the dependencies and tests:
-
-    pip install -e '.[test]'
-
+```bash
+pip install -e '.[test]'
+```
 To run the tests:
-
-    pytest
+```bash
+pytest
+```
