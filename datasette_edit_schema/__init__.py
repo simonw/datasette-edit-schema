@@ -3,6 +3,7 @@ from datasette.utils.asgi import Response, NotFound, Forbidden
 from datasette.utils import sqlite3
 from urllib.parse import quote_plus, unquote_plus
 import sqlite_utils
+import textwrap
 from .utils import (
     examples_for_columns,
     get_primary_keys,
@@ -331,20 +332,37 @@ async def edit_schema_table(request, datasette):
             return await add_column(request, datasette, database, table, formdata)
         elif "rename_table" in formdata:
             return await rename_table(request, datasette, database, table, formdata)
+        elif "add_index" in formdata:
+            column = formdata.get("add_index_column") or ""
+            unique = formdata.get("add_index_unique")
+            return await add_index(request, datasette, database, table, column, unique)
+        elif any(key.startswith("drop_index_") for key in formdata.keys()):
+            return await drop_index(request, datasette, database, table, formdata)
         else:
             return Response.html("Unknown operation", status=400)
 
-    def get_columns_and_schema_and_fks_and_pks(conn):
-        t = sqlite_utils.Database(conn)[table]
+    def get_columns_and_schema_and_fks_and_pks_and_indexes(conn):
+        db = sqlite_utils.Database(conn)
+        t = db[table]
         pks = set(t.pks)
         columns = [
             {"name": column, "type": dtype, "is_pk": column in pks}
             for column, dtype in t.columns_dict.items()
         ]
-        return columns, t.schema, t.foreign_keys, t.pks
+        # Include the index declarations in the schema as well
+        schema = db.execute(
+            textwrap.dedent(
+                """
+        select group_concat(sql, ';
+        ') from sqlite_master where tbl_name = 'Orders'
+        order by type desc
+        """
+            )
+        ).fetchone()[0]
+        return columns, schema, t.foreign_keys, t.pks, t.indexes
 
-    columns, schema, foreign_keys, pks = await database.execute_fn(
-        get_columns_and_schema_and_fks_and_pks
+    columns, schema, foreign_keys, pks, indexes = await database.execute_fn(
+        get_columns_and_schema_and_fks_and_pks_and_indexes
     )
     foreign_keys_by_column = {}
     for fk in foreign_keys:
@@ -478,6 +496,13 @@ async def edit_schema_table(request, datasette):
                     }
                 )
 
+    # Don't let users drop sqlite_autoindex_* indexes
+    existing_indexes = [
+        index for index in indexes if not index.name.startswith("sqlite_autoindex_")
+    ]
+    # Only allow index creation on non-primary-key columns
+    non_primary_key_columns = [c for c in columns if not c["is_pk"]]
+
     return Response.html(
         await datasette.render_template(
             "edit_schema_table.html",
@@ -495,6 +520,8 @@ async def edit_schema_table(request, datasette):
                 "potential_pks": potential_pks,
                 "is_rowid_table": bool(pks == ["rowid"]),
                 "current_pk": pks[0] if len(pks) == 1 else None,
+                "existing_indexes": existing_indexes,
+                "non_primary_key_columns": non_primary_key_columns,
             },
             request=request,
         )
@@ -677,4 +704,49 @@ async def update_primary_key(request, datasette, database, table, formdata):
                 formdata["primary_key"],
             ),
         )
+    return Response.redirect(request.path)
+
+
+async def add_index(request, datasette, database, table, column, unique):
+    if not column:
+        datasette.add_message(request, "Column name is required", datasette.ERROR)
+        return Response.redirect(request.path)
+
+    def run(conn):
+        db = sqlite_utils.Database(conn)
+        with conn:
+            db[table].create_index([column], find_unique_name=True, unique=unique)
+
+    try:
+        await database.execute_write_fn(run, block=True)
+        message = "Index added on "
+        if unique:
+            message = "Unique index added on "
+        message += column
+        datasette.add_message(request, message)
+    except Exception as e:
+        datasette.add_message(request, str(e), datasette.ERROR)
+    return Response.redirect(request.path)
+
+
+async def drop_index(request, datasette, database, table, formdata):
+    to_drops = [
+        key[len("drop_index_") :]
+        for key in formdata.keys()
+        if key.startswith("drop_index_")
+    ]
+    if to_drops:
+        to_drop = to_drops[0]
+
+        def run(conn):
+            with conn:
+                conn.execute("DROP INDEX [{}]".format(to_drop))
+
+        try:
+            await database.execute_write_fn(run, block=True)
+            datasette.add_message(request, "Index dropped: {}".format(to_drop))
+        except Exception as e:
+            datasette.add_message(request, str(e), datasette.ERROR)
+    else:
+        datasette.add_message(request, "No index name provided", datasette.ERROR)
     return Response.redirect(request.path)

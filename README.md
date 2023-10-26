@@ -17,6 +17,8 @@ Datasette plugin for modifying table schemas
 * Delete a table
 * Change the primary key of a table to another column containing unique values
 * Update the foreign key constraints on a table
+* Add an index (or unique index) to a column on a table
+* Drop an index from a table
 
 ## Installation
 

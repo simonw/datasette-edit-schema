@@ -14,6 +14,13 @@ html body input[type="search"] {
     font-size: 1em;
     font-family: Helvetica, sans-serif;
 }
+body form .button-red {
+    background-color: red;
+    border-color: red;
+}
+body form .button-small {
+    font-size: 0.7em;
+}
 select {
     border: 1px solid #ccc;
     border-radius: 3px;
@@ -183,15 +190,46 @@ table.foreign-key-options td {
     </form>
 {% endif %}
 
+{% if non_primary_key_columns or existing_indexes %}
+    <h2>Table indexes</h2>
+
+    <p>Indexes can speed up filter and sort operations against indexed columns.</p>
+
+    <form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
+        <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
+        {% if non_primary_key_columns %}
+            <p><label for="id_add_index_column">
+                Add index on column
+            </label> <select name="add_index_column" id="id_add_index_column">
+                {% for column in non_primary_key_columns %}
+                    <option value="{{ column.name }}">{{ column.name }}</option>
+                {% endfor %}
+            </select>
+            <label><input type="checkbox" name="add_index_unique"> Unique</label>
+            <input type="submit" name="add_index" value="Add index">
+        </p>
+        {% endif %}
+        {% if existing_indexes %}
+            <h3>Existing indexes</h3>
+            {% for index in existing_indexes %}
+                <p>
+                    <strong>{{ index.name }}</strong>
+                    {% if index.unique %} (unique){% endif %}
+                    on column{{ 's' if index.columns[1:] else '' }}
+                    <code>{{ index.columns|join(', ') }}</code>
+                    <input class="button-red button-small" type="submit" name="drop_index_{{ index.name }}" value="Drop index">
+                </p>
+            {% endfor %}
+        {% endif %}
+    </form>
+{% endif %}
+
 <h2>Delete table</h2>
 
 <form id="delete-table-form" action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
     <input type="hidden" name="delete_table" value="1">
-    <input type="submit" style="
-        background-color: red;
-        border-color: red;
-  " value="Delete this table">
+    <input type="submit" class="button-red" value="Delete this table">
 </form>
 
 <h2>Current table schema</h2>
