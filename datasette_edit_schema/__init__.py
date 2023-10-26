@@ -339,7 +339,6 @@ async def edit_schema_table(request, datasette):
         elif any(key.startswith("drop_index_") for key in formdata.keys()):
             return await drop_index(request, datasette, database, table, formdata)
         else:
-            return Response.json({"blah": formdata}, status=400)
             return Response.html("Unknown operation", status=400)
 
     def get_columns_and_schema_and_fks_and_pks_and_indexes(conn):
@@ -720,7 +719,11 @@ async def add_index(request, datasette, database, table, column, unique):
 
     try:
         await database.execute_write_fn(run, block=True)
-        datasette.add_message(request, "Index added on {}".format(column))
+        message = "Index added on "
+        if unique:
+            message = "Unique index added on "
+        message += column
+        datasette.add_message(request, message)
     except Exception as e:
         datasette.add_message(request, str(e), datasette.ERROR)
     return Response.redirect(request.path)

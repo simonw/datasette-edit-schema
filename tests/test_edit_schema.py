@@ -791,7 +791,7 @@ def test_examples_for_columns():
         (
             "museums",
             {"add_index": "1", "add_index_column": "name", "add_index_unique": 1},
-            "Index added on name",
+            "Unique index added on name",
             [{"name": "idx_museums_name", "columns": ["name"], "unique": 1}],
         ),
         (
