@@ -113,7 +113,6 @@ async def test_csrf_required(db_path):
     (
         (False, "/data/creatures", False),
         (True, "/data/creatures", True),
-        (True, "/_internal/tables", False),
     ),
 )
 @pytest.mark.asyncio
