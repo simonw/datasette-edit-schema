@@ -84,6 +84,19 @@ def db_and_path(tmpdir):
         pk="id",
         foreign_keys=(("distraction_id", "distractions"),),
     )
+    db["has_indexes"].insert(
+        {
+            "id": 1,
+            "name": "Cleo",
+            "description": "A medium sized dog",
+        },
+        pk="id",
+    )
+    db["has_indexes"].create_index(["name"], index_name="name_index")
+    db["has_indexes"].create_index(
+        ["name"], index_name="name_unique_index", unique=True
+    )
+
     return db, path
 
 
@@ -761,52 +774,81 @@ def test_examples_for_columns():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "post_data,expected_message,expected_indexes",
+    "table,post_data,expected_message,expected_indexes",
     (
         (
+            "museums",
             {"add_index": "1"},
             "Column name is required",
             [],
         ),
         (
+            "museums",
             {"add_index": "1", "add_index_column": "name"},
             "Index added on name",
             [{"name": "idx_museums_name", "columns": ["name"], "unique": 0}],
         ),
         (
+            "museums",
             {"add_index": "1", "add_index_column": "name", "add_index_unique": 1},
             "Index added on name",
             [{"name": "idx_museums_name", "columns": ["name"], "unique": 1}],
         ),
         (
+            "museums",
             {"add_index": "1", "add_index_column": "city", "add_index_unique": 1},
             "no such column: city",
             [],
         ),
         (
+            "museums",
             {"add_index": "1", "add_index_column": "city_id", "add_index_unique": 1},
             "UNIQUE constraint failed: museums.city_id",
             [],
         ),
+        # Tests for removing an index
+        (
+            "has_indexes",
+            {"drop_index_bad": "1"},
+            "no such index: bad",
+            [
+                {"columns": ["name"], "name": "name_unique_index", "unique": 1},
+                {"columns": ["name"], "name": "name_index", "unique": 0},
+            ],
+        ),
+        (
+            "has_indexes",
+            {"drop_index_name_index": "1"},
+            "Index dropped: name_index",
+            [{"columns": ["name"], "name": "name_unique_index", "unique": 1}],
+        ),
+        (
+            "has_indexes",
+            {"drop_index_name_unique_index": "1"},
+            "Index dropped: name_unique_index",
+            [{"columns": ["name"], "name": "name_index", "unique": 0}],
+        ),
     ),
 )
-async def test_add_index(db_path, post_data, expected_message, expected_indexes):
+async def test_add_remove_index(
+    db_path, table, post_data, expected_message, expected_indexes
+):
     ds = Datasette([db_path])
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     csrftoken = (
-        await ds.client.get("/-/edit-schema/data/museums", cookies=cookies)
+        await ds.client.get("/-/edit-schema/data/{}".format(table), cookies=cookies)
     ).cookies["ds_csrftoken"]
     cookies["ds_csrftoken"] = csrftoken
     post_data["csrftoken"] = csrftoken
     response = await ds.client.post(
-        "/-/edit-schema/data/museums", cookies=cookies, data=post_data
+        "/-/edit-schema/data/{}".format(table), cookies=cookies, data=post_data
     )
     assert response.status_code == 302
     messages = ds.unsign(response.cookies["ds_messages"], "messages")
     assert len(messages) == 1
     assert messages[0][0] == expected_message
     db = sqlite_utils.Database(db_path)
-    indexes = db["museums"].indexes
+    indexes = db[table].indexes
     assert [
         {"name": index.name, "columns": index.columns, "unique": index.unique}
         for index in indexes
