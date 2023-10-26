@@ -757,3 +757,58 @@ def test_examples_for_columns():
         "name": ["Name 1", "Name 4", "Name 5", "Name 6", "Name 7"],
         "weight": ["2.3", "2.0", "1.7", "2.5", "1.9"],
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "post_data,expected_message,expected_indexes",
+    (
+        (
+            {"add_index": "1"},
+            "Column name is required",
+            [],
+        ),
+        (
+            {"add_index": "1", "add_index_column": "name"},
+            "Index added on name",
+            [{"name": "idx_museums_name", "columns": ["name"], "unique": 0}],
+        ),
+        (
+            {"add_index": "1", "add_index_column": "name", "add_index_unique": 1},
+            "Index added on name",
+            [{"name": "idx_museums_name", "columns": ["name"], "unique": 1}],
+        ),
+        (
+            {"add_index": "1", "add_index_column": "city", "add_index_unique": 1},
+            "no such column: city",
+            [],
+        ),
+        (
+            {"add_index": "1", "add_index_column": "city_id", "add_index_unique": 1},
+            "UNIQUE constraint failed: museums.city_id",
+            [],
+        ),
+    ),
+)
+async def test_add_index(db_path, post_data, expected_message, expected_indexes):
+    ds = Datasette([db_path])
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    csrftoken = (
+        await ds.client.get("/-/edit-schema/data/museums", cookies=cookies)
+    ).cookies["ds_csrftoken"]
+    cookies["ds_csrftoken"] = csrftoken
+    post_data["csrftoken"] = csrftoken
+    response = await ds.client.post(
+        "/-/edit-schema/data/museums", cookies=cookies, data=post_data
+    )
+    assert response.status_code == 302
+    messages = ds.unsign(response.cookies["ds_messages"], "messages")
+    assert len(messages) == 1
+    assert messages[0][0] == expected_message
+    db = sqlite_utils.Database(db_path)
+    indexes = db["museums"].indexes
+    assert [
+        {"name": index.name, "columns": index.columns, "unique": index.unique}
+        for index in indexes
+        if "sqlite_autoindex" not in index.name
+    ] == expected_indexes

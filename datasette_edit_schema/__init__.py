@@ -333,7 +333,7 @@ async def edit_schema_table(request, datasette):
         elif "rename_table" in formdata:
             return await rename_table(request, datasette, database, table, formdata)
         elif "add_index" in formdata:
-            column = formdata["add_index_column"]
+            column = formdata.get("add_index_column") or ""
             unique = formdata.get("add_index_unique")
             return await add_index(request, datasette, database, table, column, unique)
         elif any(key.startswith("drop_index_") for key in formdata.keys()):
@@ -709,6 +709,10 @@ async def update_primary_key(request, datasette, database, table, formdata):
 
 
 async def add_index(request, datasette, database, table, column, unique):
+    if not column:
+        datasette.add_message(request, "Column name is required", datasette.ERROR)
+        return Response.redirect(request.path)
+
     def run(conn):
         db = sqlite_utils.Database(conn)
         with conn:
