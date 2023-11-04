@@ -751,16 +751,22 @@ def test_examples_for_columns():
     db = sqlite_utils.Database(memory=True)
     db["examples"].insert_all(
         [
-            {"id": 1, "name": "Name 1", "age": 15, "weight": None, "photo": b"Blob"},
-            {"id": 2, "name": None, "age": 25, "weight": 2.3, "photo": b"Blob2"},
-            {"id": 3, "name": "", "age": None, "weight": 2.0, "photo": b"Blob3"},
-            {"id": 4, "name": "Name 4", "age": 18, "weight": 1.7, "photo": b"Blob4"},
-            {"id": 5, "name": "Name 5", "age": 21, "weight": None, "photo": b"Blob5"},
-            {"id": 6, "name": "Name 6", "age": 35, "weight": 2.5, "photo": b"Blob6"},
-            {"id": 7, "name": "Name 7", "age": 28, "weight": 1.9, "photo": b"Blob7"},
-            {"id": 8, "name": "Name 8", "age": 22, "weight": 2.1, "photo": b"Blob8"},
-            {"id": 9, "name": "Name 9", "age": 20, "weight": 1.5, "photo": b"Blob9"},
-            {"id": 10, "name": "Name 10", "age": 40, "weight": 2.8, "photo": b"Blob10"},
+            {"id": 1, "name": "Name 1", "age": 15, "weight": None, "photo's": b"Blob"},
+            {"id": 2, "name": None, "age": 25, "weight": 2.3, "photo's": b"Blob2"},
+            {"id": 3, "name": "", "age": None, "weight": 2.0, "photo's": b"Blob3"},
+            {"id": 4, "name": "Name 4", "age": 18, "weight": 1.7, "photo's": b"Blob4"},
+            {"id": 5, "name": "Name 5", "age": 21, "weight": None, "photo's": b"Blob5"},
+            {"id": 6, "name": "Name 6", "age": 35, "weight": 2.5, "photo's": b"Blob6"},
+            {"id": 7, "name": "Name 7", "age": 28, "weight": 1.9, "photo's": b"Blob7"},
+            {"id": 8, "name": "Name 8", "age": 22, "weight": 2.1, "photo's": b"Blob8"},
+            {"id": 9, "name": "Name 9", "age": 20, "weight": 1.5, "photo's": b"Blob9"},
+            {
+                "id": 10,
+                "name": "Name 10",
+                "age": 40,
+                "weight": 2.8,
+                "photo's": b"Blob10",
+            },
         ]
     )
     examples = examples_for_columns(db.conn, "examples")

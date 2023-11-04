@@ -93,12 +93,14 @@ def examples_for_columns(conn, table_name):
     columns = sqlite_utils.Database(conn)[table_name].columns_dict.keys()
     ctes = [f'rows as (select * from "{table_name}" limit 1000)']
     unions = []
+    params = []
     for i, column in enumerate(columns):
         ctes.append(
             f'col{i} as (select distinct "{column}" from rows '
             f'where ("{column}" is not null and "{column}" != "") limit 5)'
         )
-        unions.append(f"select '{column}' as label, \"{column}\" as value from col{i}")
+        unions.append(f'select ? as label, "{column}" as value from col{i}')
+        params.append(column)
     ctes.append("strings as ({})".format("\nunion all\n".join(unions)))
     ctes.append(
         """
@@ -120,6 +122,6 @@ def examples_for_columns(conn, table_name):
         "from truncated_strings group by label"
     )
     output = {}
-    for column, examples in conn.execute(sql).fetchall():
+    for column, examples in conn.execute(sql, params).fetchall():
         output[column] = list(map(str, json.loads(examples)))
     return output
