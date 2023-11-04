@@ -3,6 +3,7 @@ from datasette_edit_schema.utils import (
     potential_foreign_keys,
     get_primary_keys,
     examples_for_columns,
+    potential_primary_keys,
 )
 import sqlite_utils
 import pytest
@@ -776,6 +777,19 @@ def test_examples_for_columns():
         "name": ["Name 1", "Name 4", "Name 5", "Name 6", "Name 7"],
         "weight": ["2.3", "2.0", "1.7", "2.5", "1.9"],
     }
+
+
+def test_potential_primary_keys():
+    db = sqlite_utils.Database(memory=True)
+    db["examples"].insert_all(
+        [
+            {"id": 1, "photo's": b"Blob", "cat": "1"},
+            {"id": 2, "photo's": b"Blob2", "cat": "1"},
+            {"id": 3, "photo's": b"Blob3", "cat": "2"},
+        ]
+    )
+    potentials = potential_primary_keys(db.conn, "examples", ["id", "photo's", "cat"])
+    assert potentials == ["id", "photo's"]
 
 
 @pytest.mark.asyncio

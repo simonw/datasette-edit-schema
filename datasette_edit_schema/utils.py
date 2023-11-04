@@ -54,10 +54,11 @@ def potential_foreign_keys(conn, table_name, columns, other_table_pks):
 def potential_primary_keys(conn, table_name, columns, max_string_len=128):
     # First we run a query to check the max length of each column + if it has any nulls
     selects = []
+    params = []
     for column in columns:
-        selects.append("max(length(\"{}\")) as 'maxlen.{}'".format(column, column))
+        selects.append('max(length("{}")) as "maxlen.{}"'.format(column, column))
         selects.append(
-            "sum(case when \"{}\" is null then 1 else 0 end) as 'nulls.{}'".format(
+            'sum(case when "{}" is null then 1 else 0 end) as "nulls.{}"'.format(
                 column, column
             )
         )
@@ -76,7 +77,7 @@ def potential_primary_keys(conn, table_name, columns, max_string_len=128):
     # Count distinct values in each of our candidate columns
     selects = ["count(*) as _count"]
     for column in potential_columns:
-        selects.append("count(distinct \"{}\") as 'distinct.{}'".format(column, column))
+        selects.append('count(distinct "{}") as "distinct.{}"'.format(column, column))
     sql = 'select {} from "{}"'.format(", ".join(selects), table_name)
     cursor.execute(sql)
     row = cursor.fetchone()
