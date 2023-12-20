@@ -426,7 +426,8 @@ async def test_static_assets(db_path):
 @pytest.mark.parametrize(
     "path", ["/-/edit-schema", "/-/edit-schema/data", "/-/edit-schema/data/creatures"]
 )
-async def test_permission_check(db_path, path):
+async def test_edit_schema_permission(db_path, path):
+    # root user has edit-schema which allows access to all
     ds = Datasette([db_path])
     someuser_cookies = {"ds_actor": ds.sign({"a": {"id": "someuser"}}, "actor")}
     root_cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
