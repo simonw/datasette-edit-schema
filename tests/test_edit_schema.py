@@ -9,106 +9,9 @@ import sqlite_utils
 import pytest
 import re
 from bs4 import BeautifulSoup
+from .conftest import Rule
 
 whitespace = re.compile(r"\s+")
-
-
-@pytest.fixture
-def db_and_path(tmpdir):
-    path = str(tmpdir / "data.db")
-    db = sqlite_utils.Database(path)
-    db["creatures"].insert_all(
-        [
-            {"name": "Cleo", "description": "A medium sized dog"},
-            {"name": "Siroco", "description": "A troublesome Kakapo"},
-        ]
-    )
-    db["other_table"].insert({"foo": "bar"})
-    db["empty_table"].create({"id": int, "name": str}, pk="id")
-    # Tables for testing foreign key editing
-    db["museums"].insert_all(
-        [
-            {
-                "id": "moma",
-                "name": "Museum of Modern Art",
-                "city_id": "nyc",
-            },
-            {
-                "id": "tate",
-                "name": "Tate Modern",
-                "city_id": "london",
-            },
-            {
-                "id": "exploratorium",
-                "name": "Exploratorium",
-                "city_id": "sf",
-            },
-            {
-                "id": "cablecars",
-                "name": "Cable Car Museum",
-                "city_id": "sf",
-            },
-        ],
-        pk="id",
-    )
-    db["cities"].insert_all(
-        [
-            {
-                "id": "nyc",
-                "name": "New York City",
-            },
-            {
-                "id": "london",
-                "name": "London",
-            },
-            {
-                "id": "sf",
-                "name": "San Francisco",
-            },
-        ],
-        pk="id",
-    )
-    db["distractions"].insert_all(
-        [
-            {
-                "id": "nyc",
-                "name": "Nice Yummy Cake",
-            }
-        ],
-        pk="id",
-    )
-    db["has_foreign_keys"].insert(
-        {
-            "id": 1,
-            "distraction_id": "nyc",
-        },
-        pk="id",
-        foreign_keys=(("distraction_id", "distractions"),),
-    )
-    db["has_indexes"].insert(
-        {
-            "id": 1,
-            "name": "Cleo",
-            "description": "A medium sized dog",
-        },
-        pk="id",
-    )
-    db["has_indexes"].create_index(["name"], index_name="name_index")
-    db["has_indexes"].create_index(
-        ["name"], index_name="name_unique_index", unique=True
-    )
-
-    return db, path
-
-
-@pytest.fixture
-def db_path(db_and_path):
-    return db_and_path[1]
-
-
-@pytest.fixture
-def db(db_and_path):
-    return db_and_path[0]
 
 
 @pytest.mark.asyncio
@@ -426,7 +329,7 @@ async def test_static_assets(db_path):
 @pytest.mark.parametrize(
     "path", ["/-/edit-schema", "/-/edit-schema/data", "/-/edit-schema/data/creatures"]
 )
-async def test_edit_schema_permission(db_path, path):
+async def test_permission_edit_schema(db_path, path):
     # root user has edit-schema which allows access to all
     ds = Datasette([db_path])
     someuser_cookies = {"ds_actor": ds.sign({"a": {"id": "someuser"}}, "actor")}
@@ -439,6 +342,80 @@ async def test_edit_schema_permission(db_path, path):
     # Should allow with root cookies
     response3 = await ds.client.get("" + path, cookies=root_cookies)
     assert response3.status_code in (200, 302)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "rules_allow,should_work",
+    (
+        (
+            [
+                Rule(
+                    actor_id="user",
+                    action="edit-schema",
+                    database="data",
+                    resource=None,
+                ),
+            ],
+            True,
+        ),
+        (
+            [
+                Rule(
+                    actor_id="user2",
+                    action="edit-schema",
+                    database="data",
+                    resource=None,
+                ),
+            ],
+            False,
+        ),
+        (
+            [
+                Rule(
+                    actor_id="user",
+                    action="edit-schema-create-table",
+                    database="data",
+                    resource=None,
+                ),
+            ],
+            True,
+        ),
+        (
+            [
+                Rule(
+                    actor_id="user2",
+                    action="edit-schema-create-table",
+                    database="data",
+                    resource=None,
+                ),
+            ],
+            False,
+        ),
+    ),
+)
+async def test_permission_create_table(permission_plugin, ds, rules_allow, should_work):
+    ds._rules_allow = rules_allow
+    cookies = {"ds_actor": ds.sign({"a": {"id": "user"}}, "actor")}
+    csrftoken_r = await ds.client.get("/-/edit-schema/data/-/create", cookies=cookies)
+    if not should_work:
+        assert csrftoken_r.status_code == 403
+        return
+    assert csrftoken_r.status_code == 200
+    csrftoken = csrftoken_r.cookies["ds_csrftoken"]
+    cookies["ds_csrftoken"] = csrftoken
+    post_data = {
+        "primary_key_name": "id",
+        "primary_key_type": "INTEGER",
+        "table_name": "foo",
+        "csrftoken": csrftoken,
+    }
+    response = await ds.client.post(
+        "/-/edit-schema/data/-/create",
+        data=post_data,
+        cookies=cookies,
+    )
+    assert response.status_code == 302
 
 
 @pytest.mark.asyncio
