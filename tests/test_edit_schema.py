@@ -19,7 +19,7 @@ async def test_csrf_required(db_path):
     ds = Datasette([db_path])
     response = await ds.client.post(
         "/edit-schema/data/creatures",
-        data={"delete_table": "1"},
+        data={"drop_table": "1"},
         cookies={"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")},
     )
     assert response.status_code == 403
@@ -88,7 +88,7 @@ async def test_post_without_operation_raises_error(db_path):
 
 
 @pytest.mark.asyncio
-async def test_delete_table(db_path):
+async def test_drop_table(db_path):
     ds = Datasette([db_path])
     db = sqlite_utils.Database(db_path)
     assert "creatures" in db.table_names()
@@ -99,7 +99,7 @@ async def test_delete_table(db_path):
     ).cookies["ds_csrftoken"]
     response = await ds.client.post(
         "/-/edit-schema/data/creatures",
-        data={"delete_table": "1", "csrftoken": csrftoken},
+        data={"drop_table": "1", "csrftoken": csrftoken},
         cookies=dict(cookies, ds_csrftoken=csrftoken),
     )
     assert response.status_code == 302

@@ -228,7 +228,7 @@ table.foreign-key-options td {
 
 <form id="delete-table-form" action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
-    <input type="hidden" name="delete_table" value="1">
+    <input type="hidden" name="drop_table" value="1">
     <input type="submit" class="button-red" value="Delete this table">
 </form>
 

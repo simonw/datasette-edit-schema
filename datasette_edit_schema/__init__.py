@@ -351,8 +351,8 @@ async def edit_schema_table(request, datasette):
             return await update_primary_key(
                 request, datasette, database, table, formdata
             )
-        elif "delete_table" in formdata:
-            return await delete_table(request, datasette, database, table)
+        elif "drop_table" in formdata:
+            return await drop_table(request, datasette, database, table)
         elif "add_column" in formdata:
             return await add_column(request, datasette, database, table, formdata)
         elif "rename_table" in formdata:
@@ -553,16 +553,14 @@ async def edit_schema_table(request, datasette):
     )
 
 
-async def delete_table(request, datasette, database, table):
-    def do_delete_table(conn):
+async def drop_table(request, datasette, database, table):
+    def do_drop_table(conn):
         db = sqlite_utils.Database(conn)
         db[table].disable_fts()
         db[table].drop()
         db.vacuum()
 
-    await datasette.databases[database.name].execute_write_fn(
-        do_delete_table, block=True
-    )
+    await datasette.databases[database.name].execute_write_fn(do_drop_table, block=True)
     datasette.add_message(request, "Table has been deleted")
     return Response.redirect("/-/edit-schema/" + database.name)
 
