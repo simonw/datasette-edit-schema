@@ -29,9 +29,7 @@ def permission_allowed(actor, action, resource):
 @hookimpl
 def table_actions(datasette, actor, database, table):
     async def inner():
-        if not await datasette.permission_allowed(
-            actor, "edit-schema", resource=database, default=False
-        ):
+        if not await can_alter_table(datasette, actor, database, table):
             return []
         return [
             {
@@ -45,12 +43,36 @@ def table_actions(datasette, actor, database, table):
     return inner
 
 
+async def can_create_table(datasette, actor, database):
+    if await datasette.permission_allowed(
+        actor, "edit-schema", resource=database, default=False
+    ):
+        return True
+    # Or maybe they have edit-schema-create-table
+    if await datasette.permission_allowed(
+        actor, "edit-schema-create-table", resource=database, default=False
+    ):
+        return True
+    return False
+
+
+async def can_alter_table(datasette, actor, database, table):
+    if await datasette.permission_allowed(
+        actor, "edit-schema", resource=database, default=False
+    ):
+        return True
+    # Or maybe they have edit-schema-create-table
+    if await datasette.permission_allowed(
+        actor, "edit-schema-alter-table", resource=(database, table), default=False
+    ):
+        return True
+    return False
+
+
 @hookimpl
 def database_actions(datasette, actor, database):
     async def inner():
-        if not await datasette.permission_allowed(
-            actor, "edit-schema", resource=database, default=False
-        ):
+        if not await can_create_table(datasette, actor, database):
             return []
         return [
             {
@@ -173,9 +195,9 @@ async def edit_schema_database(request, datasette):
 
 
 async def edit_schema_create_table(request, datasette):
-    databases = get_databases(datasette)
     database_name = request.url_vars["database"]
-    await check_permissions(datasette, request, database_name)
+    if not await can_create_table(datasette, request.actor, database_name):
+        raise Forbidden("Permission denied for edit-schema-create-table")
     try:
         db = datasette.get_database(database_name)
     except KeyError:
@@ -251,7 +273,10 @@ async def edit_schema_table(request, datasette):
     table = unquote_plus(request.url_vars["table"])
     databases = get_databases(datasette)
     database_name = request.url_vars["database"]
-    await check_permissions(datasette, request, database_name)
+
+    if not await can_alter_table(datasette, request.actor, database_name, table):
+        raise Forbidden("Permission denied for edit-schema-alter-table")
+
     try:
         database = [db for db in databases if db.name == database_name][0]
     except IndexError:

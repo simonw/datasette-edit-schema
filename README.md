@@ -36,13 +36,20 @@ By default only [the root actor](https://datasette.readthedocs.io/en/stable/auth
 
 ## Permissions
 
-The `edit-schema` permission governs access. You can use permission plugins such as [datasette-permissions-sql](https://github.com/simonw/datasette-permissions-sql) to grant additional access to the write interface.
+The `edit-schema` permission provides access to all functionality.
+
+You can use permission plugins such as [datasette-permissions-sql](https://github.com/simonw/datasette-permissions-sql) to grant additional access to the write interface.
 
 These permission checks will call the `permission_allowed()` plugin hook with three arguments:
 
 - `action` will be the string `"edit-schema"`
 - `actor` will be the currently authenticated actor - usually a dictionary
 - `resource` will be the string name of the database
+
+You can instead use more finely-grained permissions.
+
+- `edit-schema-create-table` allows users to create a new table. The `resource` will be the name of the database.
+- `edit-schema-alter-table` allows users to alter the schema of a table. The `resource` will be a tuple of `(database_name, table_name)`.
 
 ## Screenshot
 
