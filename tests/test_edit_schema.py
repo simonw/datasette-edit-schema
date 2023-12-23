@@ -26,21 +26,43 @@ async def test_csrf_required(db_path):
 
 
 @pytest.mark.parametrize(
-    "authenticated,path,should_allow",
+    "actor_id,should_allow",
     (
-        (False, "/data/creatures", False),
-        (True, "/data/creatures", True),
+        (None, False),
+        ("user_with_edit_schema", True),
+        ("user_with_alter_table", True),
+        ("user_with_create_table", False),
+        ("user_with_no_perms", False),
     ),
 )
 @pytest.mark.asyncio
-async def test_table_actions(db_path, authenticated, path, should_allow):
-    ds = Datasette([db_path])
+async def test_table_actions(permission_plugin, ds, actor_id, should_allow):
+    ds._rules_allow = [
+        Rule(
+            actor_id="user_with_edit_schema",
+            action="edit-schema",
+            database="data",
+            resource=None,
+        ),
+        Rule(
+            actor_id="user_with_alter_table",
+            action="edit-schema-alter-table",
+            database="data",
+            resource="creatures",
+        ),
+        Rule(
+            actor_id="user_with_create_table",
+            action="edit-schema-create-table",
+            database="data",
+            resource=None,
+        ),
+    ]
     cookies = None
-    if authenticated:
-        cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
-    response = await ds.client.get(path, cookies=cookies)
+    if actor_id:
+        cookies = {"ds_actor": ds.sign({"a": {"id": actor_id}}, "actor")}
+    response = await ds.client.get("/data/creatures", cookies=cookies)
     assert response.status_code == 200
-    fragment = '<li><a href="/-/edit-schema{}">Edit table schema</a></li>'.format(path)
+    fragment = '<li><a href="/-/edit-schema/data/creatures">Edit table schema</a></li>'
     if should_allow:
         # Should have table action
         assert fragment in response.text
@@ -412,6 +434,79 @@ async def test_permission_create_table(permission_plugin, ds, rules_allow, shoul
     }
     response = await ds.client.post(
         "/-/edit-schema/data/-/create",
+        data=post_data,
+        cookies=cookies,
+    )
+    assert response.status_code == 302
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "rules_allow,should_work",
+    (
+        (
+            [
+                Rule(
+                    actor_id="user",
+                    action="edit-schema",
+                    database="data",
+                    resource=None,
+                ),
+            ],
+            True,
+        ),
+        (
+            [
+                Rule(
+                    actor_id="user2",
+                    action="edit-schema",
+                    database="data",
+                    resource=None,
+                ),
+            ],
+            False,
+        ),
+        (
+            [
+                Rule(
+                    actor_id="user",
+                    action="edit-schema-alter-table",
+                    database="data",
+                    resource="museums",
+                ),
+            ],
+            True,
+        ),
+        (
+            [
+                Rule(
+                    actor_id="user2",
+                    action="edit-schema-alter-table",
+                    database="data",
+                    resource="museums",
+                ),
+            ],
+            False,
+        ),
+    ),
+)
+async def test_permission_alter_table(permission_plugin, ds, rules_allow, should_work):
+    ds._rules_allow = rules_allow
+    cookies = {"ds_actor": ds.sign({"a": {"id": "user"}}, "actor")}
+    csrftoken_r = await ds.client.get("/-/edit-schema/data/museums", cookies=cookies)
+    if not should_work:
+        assert csrftoken_r.status_code == 403
+        return
+    assert csrftoken_r.status_code == 200
+    csrftoken = csrftoken_r.cookies["ds_csrftoken"]
+    cookies["ds_csrftoken"] = csrftoken
+    post_data = {
+        "action": "update_primary_key",
+        "primary_key": "name",
+        "csrftoken": csrftoken,
+    }
+    response = await ds.client.post(
+        "/-/edit-schema/data/museums",
         data=post_data,
         cookies=cookies,
     )

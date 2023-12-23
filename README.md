@@ -49,6 +49,7 @@ These permission checks will call the `permission_allowed()` plugin hook with th
 You can instead use more finely-grained permissions.
 
 - `edit-schema-create-table` allows users to create a new table. The `resource` will be the name of the database.
+- `edit-schema-alter-table` allows users to alter the schema of a table. The `resource` will be a tuple of `(database_name, table_name)`.
 
 ## Screenshot
 
