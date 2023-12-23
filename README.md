@@ -50,6 +50,7 @@ You can instead use more finely-grained permissions.
 
 - `edit-schema-create-table` allows users to create a new table. The `resource` will be the name of the database.
 - `edit-schema-alter-table` allows users to alter the schema of a table. The `resource` will be a tuple of `(database_name, table_name)`.
+- `edit-schema-drop-table` allows users to drop a table. The `resource` will be a tuple of `(database_name, table_name)`. This permission will not work on its own, you need to grant the user `edit-schema-alter-table` as well.
 
 ## Screenshot
 

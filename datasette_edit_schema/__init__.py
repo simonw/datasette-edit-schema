@@ -61,9 +61,22 @@ async def can_alter_table(datasette, actor, database, table):
         actor, "edit-schema", resource=database, default=False
     ):
         return True
-    # Or maybe they have edit-schema-create-table
+    # Or maybe they have edit-schema-alter-table
     if await datasette.permission_allowed(
         actor, "edit-schema-alter-table", resource=(database, table), default=False
+    ):
+        return True
+    return False
+
+
+async def can_drop_table(datasette, actor, database, table):
+    if await datasette.permission_allowed(
+        actor, "edit-schema", resource=database, default=False
+    ):
+        return True
+    # Or maybe they have edit-schema-drop-table
+    if await datasette.permission_allowed(
+        actor, "edit-schema-drop-table", resource=(database, table), default=False
     ):
         return True
     return False
@@ -547,6 +560,9 @@ async def edit_schema_table(request, datasette):
                 "current_pk": pks[0] if len(pks) == 1 else None,
                 "existing_indexes": existing_indexes,
                 "non_primary_key_columns": non_primary_key_columns,
+                "can_drop_table": await can_drop_table(
+                    datasette, request.actor, database_name, table
+                ),
             },
             request=request,
         )
@@ -554,6 +570,9 @@ async def edit_schema_table(request, datasette):
 
 
 async def drop_table(request, datasette, database, table):
+    if not await can_drop_table(datasette, request.actor, database.name, table):
+        raise Forbidden("Permission denied for edit-schema-drop-table")
+
     def do_drop_table(conn):
         db = sqlite_utils.Database(conn)
         db[table].disable_fts()

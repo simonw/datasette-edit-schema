@@ -88,22 +88,80 @@ async def test_post_without_operation_raises_error(db_path):
 
 
 @pytest.mark.asyncio
-async def test_drop_table(db_path):
-    ds = Datasette([db_path])
+@pytest.mark.parametrize(
+    "actor_id,should_allow",
+    (
+        (None, False),
+        ("user_with_edit_schema", True),
+        ("user_with_just_create_table", False),
+        ("user_with_just_alter_table", False),
+        ("user_with_alter_table_and_drop_table", True),
+    ),
+)
+async def test_drop_table(permission_plugin, db_path, actor_id, should_allow):
+    ds = Datasette([db_path], pdb=True)
+    ds._rules_allow = [
+        Rule(
+            actor_id="user_with_edit_schema",
+            action="edit-schema",
+            database="data",
+            resource=None,
+        ),
+        Rule(
+            actor_id="user_with_alter_table_and_drop_table",
+            action="edit-schema-drop-table",
+            database="data",
+            resource="creatures",
+        ),
+        Rule(
+            actor_id="user_with_alter_table_and_drop_table",
+            action="edit-schema-alter-table",
+            database="data",
+            resource="creatures",
+        ),
+        Rule(
+            actor_id="user_with_just_create_table",
+            action="edit-schema-create-table",
+            database="data",
+            resource=None,
+        ),
+        Rule(
+            actor_id="user_with_just_alter_table",
+            action="edit-schema-alter-table",
+            database="data",
+            resource="creatures",
+        ),
+    ]
     db = sqlite_utils.Database(db_path)
     assert "creatures" in db.table_names()
-    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    cookies = {}
+    if actor_id:
+        cookies = {"ds_actor": ds.sign({"a": {"id": actor_id}}, "actor")}
     # Get a csrftoken
-    csrftoken = (
-        await ds.client.get("/-/edit-schema/data/creatures", cookies=cookies)
-    ).cookies["ds_csrftoken"]
+    form_response = await ds.client.get(
+        "/-/edit-schema/data/creatures", cookies=cookies
+    )
+    if actor_id in (None, "user_with_just_create_table"):
+        assert form_response.status_code == 403
+        return
+    assert form_response.status_code == 200
+    csrftoken = form_response.cookies["ds_csrftoken"]
+    if should_allow:
+        assert 'name="drop_table"' in form_response.text
+    else:
+        assert 'name="drop_table"' not in form_response.text
+    # Try submitting form anyway
     response = await ds.client.post(
         "/-/edit-schema/data/creatures",
         data={"drop_table": "1", "csrftoken": csrftoken},
         cookies=dict(cookies, ds_csrftoken=csrftoken),
     )
-    assert response.status_code == 302
-    assert "creatures" not in db.table_names()
+    if should_allow:
+        assert response.status_code == 302
+        assert "creatures" not in db.table_names()
+    else:
+        assert response.status_code == 403
+        assert "creatures" in db.table_names()
 
 
 @pytest.mark.asyncio
