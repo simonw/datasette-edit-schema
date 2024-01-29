@@ -392,10 +392,11 @@ async def edit_schema_table(request, datasette):
             textwrap.dedent(
                 """
         select group_concat(sql, ';
-        ') from sqlite_master where tbl_name = 'Orders'
+        ') from sqlite_master where tbl_name = ?
         order by type desc
         """
-            )
+            ),
+            [table],
         ).fetchone()[0]
         return columns, schema, t.foreign_keys, t.pks, t.indexes
 

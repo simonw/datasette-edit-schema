@@ -572,6 +572,28 @@ async def test_permission_alter_table(permission_plugin, ds, rules_allow, should
 
 
 @pytest.mark.asyncio
+async def test_table_form_contains_schema(permission_plugin, ds):
+    ds._rules_allow = [
+        Rule(
+            actor_id="user",
+            action="edit-schema",
+            database="data",
+            resource=None,
+        ),
+    ]
+    response = await ds.client.get(
+        "/-/edit-schema/data/creatures",
+        cookies={"ds_actor": ds.sign({"a": {"id": "user"}}, "actor")},
+    )
+    assert response.status_code == 200
+    assert (
+        "CREATE TABLE [creatures]" in response.text
+        # In case we remove '[' in the future:
+        or "CREATE TABLE creatures" in response.text
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "new_name,should_work,expected_message",
     [
