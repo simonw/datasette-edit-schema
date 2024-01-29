@@ -3,6 +3,11 @@
 # Grab the database
 wget https://datasette.io/content.db
 
+# Delete the triggers on the licenses table
+sqlite3 content.db "DROP TRIGGER IF EXISTS licenses_ai"
+sqlite3 content.db "DROP TRIGGER IF EXISTS licenses_ad"
+sqlite3 content.db "DROP TRIGGER IF EXISTS licenses_au"
+
 # Setup the root plugin
 mkdir shot-plugins
 cat > shot-plugins/root.py <<EOL
