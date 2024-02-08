@@ -53,8 +53,9 @@ def potential_foreign_keys(conn, table_name, columns, other_table_pks):
 
 def potential_primary_keys(conn, table_name, columns, max_string_len=128):
     # First we run a query to check the max length of each column + if it has any nulls
+    if not columns:
+        return []
     selects = []
-    params = []
     for column in columns:
         selects.append('max(length("{}")) as "maxlen.{}"'.format(column, column))
         selects.append(

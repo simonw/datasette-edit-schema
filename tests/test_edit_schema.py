@@ -945,6 +945,20 @@ def test_potential_primary_keys():
     assert potentials == ["id", "photo's"]
 
 
+def test_potential_primary_keys_primary_key_only_table():
+    # https://github.com/simonw/datasette-edit-schema/issues/51
+    db = sqlite_utils.Database(memory=True)
+    db["examples"].insert_all(
+        [
+            {"one_id": 1, "two_id": 2},
+            {"one_id": 2, "two_id": 2},
+        ],
+        pk=("one_id", "two_id"),
+    )
+    potentials = potential_primary_keys(db.conn, "examples", [])
+    assert potentials == []
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "table,post_data,expected_message,expected_indexes",
