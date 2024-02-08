@@ -155,7 +155,7 @@ table.foreign-key-options td {
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
     <input type="hidden" name="action" value="update_foreign_keys">
     <table class="foreign-key-options">
-    {% for column in column_foreign_keys %}
+    {% for column in all_columns_to_manage_foreign_keys %}
       <tr>
         <td><label for="fk.{{ column.name }}">{{ column.name }}</label></td>
         <td><select id="fk.{{ column.name }}" name="fk.{{ column.name }}"><option value="">-- {% if not column.suggested and not column.foreign_key %}no suggestions{% else %}none{% endif %} --</option>

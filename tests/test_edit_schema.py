@@ -686,6 +686,22 @@ async def test_edit_form_shows_suggestions(db_path):
     select_options = [(s["name"], get_options(soup, s["name"])) for s in selects]
     assert select_options == [
         (
+            "fk.id",
+            [
+                {
+                    "value": "-- no suggestions --",
+                    "text": "-- no suggestions --",
+                    "selected": False,
+                },
+                {"value": "cities.id", "text": "cities.id", "selected": False},
+                {
+                    "value": "distractions.id",
+                    "text": "distractions.id",
+                    "selected": False,
+                },
+            ],
+        ),
+        (
             "fk.name",
             [
                 {
@@ -743,6 +759,14 @@ async def test_edit_form_for_empty_table(db_path):
             [("museums", "city_id", "cities", "id")],
             ["id"],
             "Foreign keys updated to city_id → cities.id",
+        ),
+        # Set the primary key to be a foreign key
+        (
+            "museums",
+            {"action": "update_foreign_keys", "fk.id": "cities.id"},
+            [("museums", "id", "cities", "id")],
+            ["id"],
+            "Foreign keys updated to id → cities.id",
         ),
         # No changes to foreign keys
         (

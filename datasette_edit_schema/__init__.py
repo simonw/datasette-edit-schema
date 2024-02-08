@@ -433,7 +433,7 @@ async def edit_schema_table(request, datasette):
         (pair[0], pair[1]) for pair in other_primary_keys if pair[2] is str
     ]
 
-    column_foreign_keys = [
+    all_columns_to_manage_foreign_keys = [
         {
             "name": column["name"],
             "foreign_key": foreign_keys_by_column.get(column["name"])[0]
@@ -445,7 +445,6 @@ async def edit_schema_table(request, datasette):
             else string_primary_keys,
         }
         for column in columns
-        if not column["is_pk"]
     ]
 
     # Anything not a float or an existing PK could be the next PK, but
@@ -472,7 +471,7 @@ async def edit_schema_table(request, datasette):
                 other_primary_keys,
             )
         )
-        for info in column_foreign_keys:
+        for info in all_columns_to_manage_foreign_keys:
             info["suggestions"] = potential_fks.get(info["name"], [])
         # Now do potential primary keys against non-float columns
         non_float_columns = [
@@ -483,7 +482,7 @@ async def edit_schema_table(request, datasette):
         )
 
     # Add 'options' to those
-    for info in column_foreign_keys:
+    for info in all_columns_to_manage_foreign_keys:
         options = []
         seen = set()
         info["html_options"] = options
@@ -555,7 +554,7 @@ async def edit_schema_table(request, datasette):
                     for value in TYPES.values()
                 ],
                 "foreign_keys": foreign_keys,
-                "column_foreign_keys": column_foreign_keys,
+                "all_columns_to_manage_foreign_keys": all_columns_to_manage_foreign_keys,
                 "potential_pks": potential_pks,
                 "is_rowid_table": bool(pks == ["rowid"]),
                 "current_pk": pks[0] if len(pks) == 1 else None,
