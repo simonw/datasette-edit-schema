@@ -14,6 +14,13 @@ from .conftest import Rule
 whitespace = re.compile(r"\s+")
 
 
+def get_last_event(datasette):
+    # Returns None of events are not tracked
+    events = getattr(datasette, "_tracked_events", [])
+    if events:
+        return events[-1]
+
+
 @pytest.mark.asyncio
 async def test_csrf_required(db_path):
     ds = Datasette([db_path])
@@ -923,6 +930,9 @@ async def test_create_table(db_path, post_data, expected_message, expected_schem
     if expected_schema is not None:
         db = sqlite_utils.Database(db_path)
         assert db[post_data["table_name"]].columns_dict == expected_schema
+    event = get_last_event(ds)
+    if event:
+        assert event.name == "create-table"
 
 
 def test_examples_for_columns():
