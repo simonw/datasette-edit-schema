@@ -602,6 +602,13 @@ async def drop_table(request, datasette, database, table):
 
     await datasette.databases[database.name].execute_write_fn(do_drop_table, block=True)
     datasette.add_message(request, "Table has been deleted")
+    await track_event(
+        datasette,
+        "DropTableEvent",
+        actor=request.actor,
+        database=database.name,
+        table=table,
+    )
     return Response.redirect("/-/edit-schema/" + database.name)
 
 

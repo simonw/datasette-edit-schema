@@ -19,6 +19,10 @@ def get_last_event(datasette):
     events = getattr(datasette, "_tracked_events", [])
     if events:
         return events[-1]
+    else:
+        # If we are running Datasette >=1.0a8 this is an error
+        if hasattr(datasette, "track_event"):
+            raise Exception("No event was tracked")
 
 
 @pytest.mark.asyncio
@@ -166,6 +170,9 @@ async def test_drop_table(permission_plugin, db_path, actor_id, should_allow):
     if should_allow:
         assert response.status_code == 302
         assert "creatures" not in db.table_names()
+        event = get_last_event(ds)
+        if event is not None:
+            assert event.name == "drop-table"
     else:
         assert response.status_code == 403
         assert "creatures" in db.table_names()
@@ -930,9 +937,10 @@ async def test_create_table(db_path, post_data, expected_message, expected_schem
     if expected_schema is not None:
         db = sqlite_utils.Database(db_path)
         assert db[post_data["table_name"]].columns_dict == expected_schema
-    event = get_last_event(ds)
-    if event:
-        assert event.name == "create-table"
+        # And create-table should have been tracked
+        event = get_last_event(ds)
+        if event:
+            assert event.name == "create-table"
 
 
 def test_examples_for_columns():
