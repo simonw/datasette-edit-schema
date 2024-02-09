@@ -677,6 +677,9 @@ async def rename_table(request, datasette, database, table, formdata):
         return redirect
 
     try:
+        before_schema = await database.execute_fn(
+            lambda conn: sqlite_utils.Database(conn)[table].schema
+        )
         await database.execute_write(
             """
             ALTER TABLE [{}] RENAME TO [{}];
@@ -685,9 +688,22 @@ async def rename_table(request, datasette, database, table, formdata):
             ),
             block=True,
         )
+        after_schema = await database.execute_fn(
+            lambda conn: sqlite_utils.Database(conn)[new_name].schema
+        )
         datasette.add_message(
             request, "Table renamed to '{}'".format(new_name), datasette.INFO
         )
+        await track_event(
+            datasette,
+            "AlterTableEvent",
+            actor=request.actor,
+            database=database.name,
+            table=new_name,
+            before_schema=before_schema,
+            after_schema=after_schema,
+        )
+
     except Exception as error:
         datasette.add_message(
             request, "Error renaming table: {}".format(str(error)), datasette.ERROR

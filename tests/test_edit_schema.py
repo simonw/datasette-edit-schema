@@ -620,6 +620,14 @@ async def test_rename_table(db_path, new_name, should_work, expected_message):
     assert response.status_code == 302
     if should_work:
         expected_path = "/-/edit-schema/data/{}".format(new_name)
+        if expected_message != "Table name was the same":
+            event = get_last_event(ds)
+            if event:
+                assert event.name == "alter-table"
+                assert event.table == new_name
+                assert new_name in event.properties()["after_schema"]
+                assert "creatures" in event.properties()["before_schema"]
+
     else:
         expected_path = "/-/edit-schema/data/creatures"
     assert response.headers["location"] == expected_path
