@@ -22,6 +22,9 @@ select {
     font-size: 1em;
     font-family: Helvetica, sans-serif;
 }
+select.select-smaller {
+    width: 90%;
+}
 html body label {
     font-weight: bold;
     display: inline-block;
@@ -81,14 +84,14 @@ html body label {
 <form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/-/create" method="post">
 <p>
   <label for="table_name">Table name: &nbsp;</label>
-  <input type="text" required="1" id="table_name" name="table_name" size="20" style="width: 30%">
+  <input type="text" required="1" id="table_name" name="table_name" size="20" style="width: 25%">
 </p>
 <h2>Columns</h2>
 <p style="font-size: 0.8em;">If the primary key is an integer it will automatically count up from 1</p>
 <ul class="editable-columns">
   <!-- primary key comes first and is not sortable -->
   <li>
-    <input style="width: 30%" type="text" size="10" name="primary_key_name" value="id">
+    <input style="width: 25%" type="text" size="10" name="primary_key_name" value="id">
     <label>Type: <select name="primary_key_type">
       <option value="INTEGER" selected="selected">Integer</option>
       <option value="TEXT">Text</option>
@@ -99,7 +102,7 @@ html body label {
 <ul class="sortable-columns editable-columns">
 {% for column in columns %}
     <li>
-        <input style="width: 30%" type="text" size="10" name="column-name.{{ loop.index }}" value="">
+        <input style="width: 25%" type="text" size="10" name="column-name.{{ loop.index }}" value="">
         <label>Type: <select name="column-type.{{ loop.index }}">
             {% for type in types %}
                 <option value="{{ type.value }}">{{ type.name }}</option>
