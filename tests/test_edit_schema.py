@@ -173,6 +173,8 @@ async def test_drop_table(permission_plugin, db_path, actor_id, should_allow):
         event = get_last_event(ds)
         if event is not None:
             assert event.name == "drop-table"
+            # This should have used isolated_fn as well:
+            assert getattr(ds, "_datasette_edit_schema_used_execute_isolated_fn", None)
     else:
         assert response.status_code == 403
         assert "creatures" in db.table_names()

@@ -600,7 +600,13 @@ async def drop_table(request, datasette, database, table):
         db[table].drop()
         db.vacuum()
 
-    await datasette.databases[database.name].execute_write_fn(do_drop_table, block=True)
+    if hasattr(database, "execute_isolated_fn"):
+        await database.execute_isolated_fn(do_drop_table)
+        # For the tests
+        datasette._datasette_edit_schema_used_execute_isolated_fn = True
+    else:
+        await database.execute_write_fn(do_drop_table)
+
     datasette.add_message(request, "Table has been deleted")
     await track_event(
         datasette,
