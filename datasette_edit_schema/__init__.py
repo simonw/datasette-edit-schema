@@ -11,8 +11,20 @@ from .utils import (
     potential_primary_keys,
 )
 
+try:
+    from datasette import events
+except ImportError:  # Pre Datasette 1.0a8
+    events = None
+
 # Don't attempt to detect foreign keys on tables larger than this:
 FOREIGN_KEY_DETECTION_LIMIT = 10_000
+
+
+async def track_event(datasette, klass_name, **kwargs):
+    if not hasattr(datasette, "track_event"):
+        return
+    klass = getattr(events, klass_name)
+    await datasette.track_event(klass(**kwargs))
 
 
 @hookimpl
@@ -245,17 +257,18 @@ async def edit_schema_create_table(request, datasette):
         def create_the_table(conn):
             db = sqlite_utils.Database(conn)
             if not table_name.strip():
-                return "Table name is required"
+                return None, "Table name is required"
             if db[table_name].exists():
-                return "Table already exists"
+                return None, "Table already exists"
             try:
                 db[table_name].create(
                     create, pk=primary_key_name, not_null=(primary_key_name,)
                 )
+                return db[table_name].schema, None
             except Exception as e:
-                return str(e)
+                return None, str(e)
 
-        error = await db.execute_write_fn(create_the_table, block=True)
+        schema, error = await db.execute_write_fn(create_the_table, block=True)
 
         if error:
             datasette.add_message(request, str(error), datasette.ERROR)
@@ -263,6 +276,14 @@ async def edit_schema_create_table(request, datasette):
         else:
             datasette.add_message(request, "Table has been created")
             path = datasette.urls.table(database_name, table_name)
+            await track_event(
+                datasette,
+                "CreateTableEvent",
+                actor=request.actor,
+                database=database_name,
+                table=table_name,
+                schema=schema,
+            )
 
         return Response.redirect(path)
 
@@ -581,6 +602,13 @@ async def drop_table(request, datasette, database, table):
 
     await datasette.databases[database.name].execute_write_fn(do_drop_table, block=True)
     datasette.add_message(request, "Table has been deleted")
+    await track_event(
+        datasette,
+        "DropTableEvent",
+        actor=request.actor,
+        database=database.name,
+        table=table,
+    )
     return Response.redirect("/-/edit-schema/" + database.name)
 
 

@@ -153,3 +153,19 @@ def permission_plugin():
     pm.register(PermissionPlugin(), name="undo_permission_plugin")
     yield
     pm.unregister(name="undo_permission_plugin")
+
+
+class TrackEventPlugin:
+    __name__ = "TrackEventPlugin"
+
+    @hookimpl
+    def track_event(self, datasette, event):
+        datasette._tracked_events = getattr(datasette, "_tracked_events", [])
+        datasette._tracked_events.append(event)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def install_event_tracking_plugin():
+    from datasette.plugins import pm
+
+    pm.register(TrackEventPlugin(), name="TrackEventPlugin")
