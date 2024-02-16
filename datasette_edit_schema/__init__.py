@@ -60,9 +60,9 @@ async def can_create_table(datasette, actor, database):
         actor, "edit-schema", resource=database, default=False
     ):
         return True
-    # Or maybe they have edit-schema-create-table
+    # Or maybe they have create-table
     if await datasette.permission_allowed(
-        actor, "edit-schema-create-table", resource=database, default=False
+        actor, "create-table", resource=database, default=False
     ):
         return True
     return False
@@ -73,9 +73,8 @@ async def can_alter_table(datasette, actor, database, table):
         actor, "edit-schema", resource=database, default=False
     ):
         return True
-    # Or maybe they have edit-schema-alter-table
     if await datasette.permission_allowed(
-        actor, "edit-schema-alter-table", resource=(database, table), default=False
+        actor, "alter-table", resource=(database, table), default=False
     ):
         return True
     return False
@@ -86,9 +85,9 @@ async def can_drop_table(datasette, actor, database, table):
         actor, "edit-schema", resource=database, default=False
     ):
         return True
-    # Or maybe they have edit-schema-drop-table
+    # Or maybe they have drop-table
     if await datasette.permission_allowed(
-        actor, "edit-schema-drop-table", resource=(database, table), default=False
+        actor, "drop-table", resource=(database, table), default=False
     ):
         return True
     return False
@@ -222,7 +221,7 @@ async def edit_schema_database(request, datasette):
 async def edit_schema_create_table(request, datasette):
     database_name = request.url_vars["database"]
     if not await can_create_table(datasette, request.actor, database_name):
-        raise Forbidden("Permission denied for edit-schema-create-table")
+        raise Forbidden("Permission denied for create-table")
     try:
         db = datasette.get_database(database_name)
     except KeyError:
@@ -309,7 +308,7 @@ async def edit_schema_table(request, datasette):
     database_name = request.url_vars["database"]
 
     if not await can_alter_table(datasette, request.actor, database_name, table):
-        raise Forbidden("Permission denied for edit-schema-alter-table")
+        raise Forbidden("Permission denied for alter-table")
 
     try:
         database = [db for db in databases if db.name == database_name][0]
@@ -592,7 +591,7 @@ async def edit_schema_table(request, datasette):
 
 async def drop_table(request, datasette, database, table):
     if not await can_drop_table(datasette, request.actor, database.name, table):
-        raise Forbidden("Permission denied for edit-schema-drop-table")
+        raise Forbidden("Permission denied for drop-table")
 
     def do_drop_table(conn):
         db = sqlite_utils.Database(conn)

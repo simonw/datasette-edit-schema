@@ -7,6 +7,8 @@
 
 Datasette plugin for modifying table schemas
 
+> :warning: The latest alpha release depends on Datasette 1.09a. Use [version 0.7.1](https://github.com/simonw/datasette-edit-schema/blob/0.7.1/README.md) with older releases of Datasette.
+
 ## Features
 
 * Add new columns to a table
@@ -48,9 +50,9 @@ These permission checks will call the `permission_allowed()` plugin hook with th
 
 You can instead use more finely-grained permissions.
 
-- `edit-schema-create-table` allows users to create a new table. The `resource` will be the name of the database.
-- `edit-schema-alter-table` allows users to alter the schema of a table. The `resource` will be a tuple of `(database_name, table_name)`.
-- `edit-schema-drop-table` allows users to drop a table. The `resource` will be a tuple of `(database_name, table_name)`. This permission will not work on its own, you need to grant the user `edit-schema-alter-table` as well.
+- `create-table` allows users to create a new table. The `resource` will be the name of the database.
+- `drop-table` allows users to drop a table. The `resource` will be a tuple of `(database_name, table_name)`.
+- `alter-table` allows users to alter a table. The `resource` will be a tuple of `(database_name, table_name)`.
 
 ## Screenshot
 

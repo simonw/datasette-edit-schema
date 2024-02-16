@@ -41,7 +41,6 @@ async def test_csrf_required(db_path):
     (
         (None, False),
         ("user_with_edit_schema", True),
-        ("user_with_alter_table", True),
         ("user_with_create_table", False),
         ("user_with_no_perms", False),
     ),
@@ -56,14 +55,8 @@ async def test_table_actions(permission_plugin, ds, actor_id, should_allow):
             resource=None,
         ),
         Rule(
-            actor_id="user_with_alter_table",
-            action="edit-schema-alter-table",
-            database="data",
-            resource="creatures",
-        ),
-        Rule(
             actor_id="user_with_create_table",
-            action="edit-schema-create-table",
+            action="create-table",
             database="data",
             resource=None,
         ),
@@ -105,8 +98,7 @@ async def test_post_without_operation_raises_error(db_path):
         (None, False),
         ("user_with_edit_schema", True),
         ("user_with_just_create_table", False),
-        ("user_with_just_alter_table", False),
-        ("user_with_alter_table_and_drop_table", True),
+        ("user_with_alter_and_drop_table", True),
     ),
 )
 async def test_drop_table(permission_plugin, db_path, actor_id, should_allow):
@@ -119,28 +111,22 @@ async def test_drop_table(permission_plugin, db_path, actor_id, should_allow):
             resource=None,
         ),
         Rule(
-            actor_id="user_with_alter_table_and_drop_table",
-            action="edit-schema-drop-table",
+            actor_id="user_with_alter_and_drop_table",
+            action="drop-table",
             database="data",
             resource="creatures",
         ),
         Rule(
-            actor_id="user_with_alter_table_and_drop_table",
-            action="edit-schema-alter-table",
+            actor_id="user_with_alter_and_drop_table",
+            action="alter-table",
             database="data",
             resource="creatures",
         ),
         Rule(
             actor_id="user_with_just_create_table",
-            action="edit-schema-create-table",
+            action="create-table",
             database="data",
             resource=None,
-        ),
-        Rule(
-            actor_id="user_with_just_alter_table",
-            action="edit-schema-alter-table",
-            database="data",
-            resource="creatures",
         ),
     ]
     db = sqlite_utils.Database(db_path)
@@ -470,7 +456,7 @@ async def test_permission_edit_schema(db_path, path):
             [
                 Rule(
                     actor_id="user",
-                    action="edit-schema-create-table",
+                    action="create-table",
                     database="data",
                     resource=None,
                 ),
@@ -481,7 +467,7 @@ async def test_permission_edit_schema(db_path, path):
             [
                 Rule(
                     actor_id="user2",
-                    action="edit-schema-create-table",
+                    action="create-table",
                     database="data",
                     resource=None,
                 ),
@@ -544,7 +530,7 @@ async def test_permission_create_table(permission_plugin, ds, rules_allow, shoul
             [
                 Rule(
                     actor_id="user",
-                    action="edit-schema-alter-table",
+                    action="alter-table",
                     database="data",
                     resource="museums",
                 ),
@@ -555,7 +541,7 @@ async def test_permission_create_table(permission_plugin, ds, rules_allow, shoul
             [
                 Rule(
                     actor_id="user2",
-                    action="edit-schema-alter-table",
+                    action="alter-table",
                     database="data",
                     resource="museums",
                 ),
