@@ -1,4 +1,5 @@
 from datasette import hookimpl
+from datasette.events import CreateTableEvent, AlterTableEvent, DropTableEvent
 from datasette.utils.asgi import Response, NotFound, Forbidden
 from datasette.utils import sqlite3
 from urllib.parse import quote_plus, unquote_plus
@@ -18,13 +19,6 @@ except ImportError:  # Pre Datasette 1.0a8
 
 # Don't attempt to detect foreign keys on tables larger than this:
 FOREIGN_KEY_DETECTION_LIMIT = 10_000
-
-
-async def track_event(datasette, klass_name, **kwargs):
-    if not hasattr(datasette, "track_event"):
-        return
-    klass = getattr(events, klass_name)
-    await datasette.track_event(klass(**kwargs))
 
 
 @hookimpl
@@ -275,13 +269,13 @@ async def edit_schema_create_table(request, datasette):
         else:
             datasette.add_message(request, "Table has been created")
             path = datasette.urls.table(database_name, table_name)
-            await track_event(
-                datasette,
-                "CreateTableEvent",
-                actor=request.actor,
-                database=database_name,
-                table=table_name,
-                schema=schema,
+            await datasette.track_event(
+                CreateTableEvent(
+                    actor=request.actor,
+                    database=database_name,
+                    table=table_name,
+                    schema=schema,
+                )
             )
 
         return Response.redirect(path)
@@ -607,12 +601,12 @@ async def drop_table(request, datasette, database, table):
         await database.execute_write_fn(do_drop_table)
 
     datasette.add_message(request, "Table has been deleted")
-    await track_event(
-        datasette,
-        "DropTableEvent",
-        actor=request.actor,
-        database=database.name,
-        table=table,
+    await datasette.track_event(
+        DropTableEvent(
+            actor=request.actor,
+            database=database.name,
+            table=table,
+        )
     )
     return Response.redirect("/-/edit-schema/" + database.name)
 
@@ -694,14 +688,14 @@ async def rename_table(request, datasette, database, table, formdata):
         datasette.add_message(
             request, "Table renamed to '{}'".format(new_name), datasette.INFO
         )
-        await track_event(
-            datasette,
-            "AlterTableEvent",
-            actor=request.actor,
-            database=database.name,
-            table=new_name,
-            before_schema=before_schema,
-            after_schema=after_schema,
+        await datasette.track_event(
+            AlterTableEvent(
+                actor=request.actor,
+                database=database.name,
+                table=new_name,
+                before_schema=before_schema,
+                after_schema=after_schema,
+            )
         )
 
     except Exception as error:
