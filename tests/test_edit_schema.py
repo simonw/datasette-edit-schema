@@ -614,6 +614,7 @@ async def test_rename_table(db_path, new_name, should_work, expected_message):
     csrftoken = (
         await ds.client.get("/-/edit-schema/data/creatures", cookies=cookies)
     ).cookies["ds_csrftoken"]
+    before_schema = sqlite_utils.Database(db_path)["creatures"].schema
     response = await ds.client.post(
         "/-/edit-schema/data/creatures",
         data={
@@ -640,6 +641,15 @@ async def test_rename_table(db_path, new_name, should_work, expected_message):
     messages = ds.unsign(response.cookies["ds_messages"], "messages")
     assert len(messages) == 1
     assert messages[0][0] == expected_message
+    if should_work:
+        # Should have tracked alter-table against the new table name
+        event = get_last_event(ds)
+        if expected_message == "Table name was the same":
+            assert event is None
+        else:
+            assert event.name == "alter-table"
+            assert event.before_schema == before_schema
+            assert event.after_schema == sqlite_utils.Database(db_path)[new_name].schema
 
 
 @pytest.mark.asyncio
