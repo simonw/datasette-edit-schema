@@ -1,4 +1,5 @@
 from datasette import hookimpl
+from datasette.events import CreateTableEvent, AlterTableEvent, DropTableEvent
 from datasette.utils.asgi import Response, NotFound, Forbidden
 from datasette.utils import sqlite3
 from urllib.parse import quote_plus, unquote_plus
@@ -18,13 +19,6 @@ except ImportError:  # Pre Datasette 1.0a8
 
 # Don't attempt to detect foreign keys on tables larger than this:
 FOREIGN_KEY_DETECTION_LIMIT = 10_000
-
-
-async def track_event(datasette, klass_name, **kwargs):
-    if not hasattr(datasette, "track_event"):
-        return
-    klass = getattr(events, klass_name)
-    await datasette.track_event(klass(**kwargs))
 
 
 @hookimpl
@@ -275,13 +269,13 @@ async def edit_schema_create_table(request, datasette):
         else:
             datasette.add_message(request, "Table has been created")
             path = datasette.urls.table(database_name, table_name)
-            await track_event(
-                datasette,
-                "CreateTableEvent",
-                actor=request.actor,
-                database=database_name,
-                table=table_name,
-                schema=schema,
+            await datasette.track_event(
+                CreateTableEvent(
+                    actor=request.actor,
+                    database=database_name,
+                    table=table_name,
+                    schema=schema,
+                )
             )
 
         return Response.redirect(path)
@@ -318,6 +312,29 @@ async def edit_schema_table(request, datasette):
         raise NotFound("Table not found")
 
     if request.method == "POST":
+
+        def get_schema(conn):
+            table_obj = sqlite_utils.Database(conn)[table]
+            if not table_obj.exists():
+                return None
+            return table_obj.schema
+
+        before_schema = await database.execute_fn(get_schema)
+
+        async def track_analytics():
+            after_schema = await database.execute_fn(get_schema)
+            # Don't track drop tables, which happen when after_schema is None
+            if after_schema is not None and after_schema != before_schema:
+                await datasette.track_event(
+                    AlterTableEvent(
+                        actor=request.actor,
+                        database=database_name,
+                        table=table,
+                        before_schema=before_schema,
+                        after_schema=after_schema,
+                    )
+                )
+
         formdata = await request.post_vars()
         if formdata.get("action") == "update_columns":
             types = {}
@@ -373,31 +390,35 @@ async def edit_schema_table(request, datasette):
             await database.execute_write_fn(transform_the_table, block=True)
 
             datasette.add_message(request, "Changes to table have been saved")
-
+            await track_analytics()
             return Response.redirect(request.path)
 
         if formdata.get("action") == "update_foreign_keys":
-            return await update_foreign_keys(
+            response = await update_foreign_keys(
                 request, datasette, database, table, formdata
             )
         elif formdata.get("action") == "update_primary_key":
-            return await update_primary_key(
+            response = await update_primary_key(
                 request, datasette, database, table, formdata
             )
         elif "drop_table" in formdata:
-            return await drop_table(request, datasette, database, table)
+            response = await drop_table(request, datasette, database, table)
         elif "add_column" in formdata:
-            return await add_column(request, datasette, database, table, formdata)
+            response = await add_column(request, datasette, database, table, formdata)
         elif "rename_table" in formdata:
-            return await rename_table(request, datasette, database, table, formdata)
+            response = await rename_table(request, datasette, database, table, formdata)
         elif "add_index" in formdata:
             column = formdata.get("add_index_column") or ""
             unique = formdata.get("add_index_unique")
-            return await add_index(request, datasette, database, table, column, unique)
+            response = await add_index(
+                request, datasette, database, table, column, unique
+            )
         elif any(key.startswith("drop_index_") for key in formdata.keys()):
-            return await drop_index(request, datasette, database, table, formdata)
+            response = await drop_index(request, datasette, database, table, formdata)
         else:
-            return Response.html("Unknown operation", status=400)
+            response = Response.html("Unknown operation", status=400)
+        await track_analytics()
+        return response
 
     def get_columns_and_schema_and_fks_and_pks_and_indexes(conn):
         db = sqlite_utils.Database(conn)
@@ -456,13 +477,15 @@ async def edit_schema_table(request, datasette):
     all_columns_to_manage_foreign_keys = [
         {
             "name": column["name"],
-            "foreign_key": foreign_keys_by_column.get(column["name"])[0]
-            if foreign_keys_by_column.get(column["name"])
-            else None,
+            "foreign_key": (
+                foreign_keys_by_column.get(column["name"])[0]
+                if foreign_keys_by_column.get(column["name"])
+                else None
+            ),
             "suggestions": [],
-            "options": integer_primary_keys
-            if column["type"] is int
-            else string_primary_keys,
+            "options": (
+                integer_primary_keys if column["type"] is int else string_primary_keys
+            ),
         }
         for column in columns
     ]
@@ -607,12 +630,12 @@ async def drop_table(request, datasette, database, table):
         await database.execute_write_fn(do_drop_table)
 
     datasette.add_message(request, "Table has been deleted")
-    await track_event(
-        datasette,
-        "DropTableEvent",
-        actor=request.actor,
-        database=database.name,
-        table=table,
+    await datasette.track_event(
+        DropTableEvent(
+            actor=request.actor,
+            database=database.name,
+            table=table,
+        )
     )
     return Response.redirect("/-/edit-schema/" + database.name)
 
@@ -677,6 +700,9 @@ async def rename_table(request, datasette, database, table, formdata):
         return redirect
 
     try:
+        before_schema = await database.execute_fn(
+            lambda conn: sqlite_utils.Database(conn)[table].schema
+        )
         await database.execute_write(
             """
             ALTER TABLE [{}] RENAME TO [{}];
@@ -685,9 +711,22 @@ async def rename_table(request, datasette, database, table, formdata):
             ),
             block=True,
         )
+        after_schema = await database.execute_fn(
+            lambda conn: sqlite_utils.Database(conn)[new_name].schema
+        )
         datasette.add_message(
             request, "Table renamed to '{}'".format(new_name), datasette.INFO
         )
+        await datasette.track_event(
+            AlterTableEvent(
+                actor=request.actor,
+                database=database.name,
+                table=new_name,
+                before_schema=before_schema,
+                after_schema=after_schema,
+            )
+        )
+
     except Exception as error:
         datasette.add_message(
             request, "Error renaming table: {}".format(str(error)), datasette.ERROR

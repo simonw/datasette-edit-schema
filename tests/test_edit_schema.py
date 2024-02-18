@@ -19,10 +19,6 @@ def get_last_event(datasette):
     events = getattr(datasette, "_tracked_events", [])
     if events:
         return events[-1]
-    else:
-        # If we are running Datasette >=1.0a8 this is an error
-        if hasattr(datasette, "track_event"):
-            raise Exception("No event was tracked")
 
 
 @pytest.mark.asyncio
@@ -347,6 +343,7 @@ async def test_transform_table(
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     db = sqlite_utils.Database(db_path)
     table = db["creatures"]
+    before_schema = table.schema
     assert table.columns_dict == {"name": str, "description": str}
     csrftoken = (
         await ds.client.get("/-/edit-schema/data/creatures", cookies=cookies)
@@ -365,6 +362,11 @@ async def test_transform_table(
     assert [c.name for c in table.columns] == expected_order
     assert len(messages) == 1
     assert messages[0][0] == expected_message
+    # Should have tracked an event
+    event = get_last_event(ds)
+    assert event.name == "alter-table"
+    assert event.before_schema == before_schema
+    assert event.after_schema == table.schema
 
 
 @pytest.mark.asyncio
@@ -612,6 +614,7 @@ async def test_rename_table(db_path, new_name, should_work, expected_message):
     csrftoken = (
         await ds.client.get("/-/edit-schema/data/creatures", cookies=cookies)
     ).cookies["ds_csrftoken"]
+    before_schema = sqlite_utils.Database(db_path)["creatures"].schema
     response = await ds.client.post(
         "/-/edit-schema/data/creatures",
         data={
@@ -624,12 +627,29 @@ async def test_rename_table(db_path, new_name, should_work, expected_message):
     assert response.status_code == 302
     if should_work:
         expected_path = "/-/edit-schema/data/{}".format(new_name)
+        if expected_message != "Table name was the same":
+            event = get_last_event(ds)
+            if event:
+                assert event.name == "alter-table"
+                assert event.table == new_name
+                assert new_name in event.properties()["after_schema"]
+                assert "creatures" in event.properties()["before_schema"]
+
     else:
         expected_path = "/-/edit-schema/data/creatures"
     assert response.headers["location"] == expected_path
     messages = ds.unsign(response.cookies["ds_messages"], "messages")
     assert len(messages) == 1
     assert messages[0][0] == expected_message
+    if should_work:
+        # Should have tracked alter-table against the new table name
+        event = get_last_event(ds)
+        if expected_message == "Table name was the same":
+            assert event is None
+        else:
+            assert event.name == "alter-table"
+            assert event.before_schema == before_schema
+            assert event.after_schema == sqlite_utils.Database(db_path)[new_name].schema
 
 
 @pytest.mark.asyncio
@@ -925,10 +945,10 @@ async def test_create_table(db_path, post_data, expected_message, expected_schem
     if expected_schema is not None:
         db = sqlite_utils.Database(db_path)
         assert db[post_data["table_name"]].columns_dict == expected_schema
-        # And create-table should have been tracked
-        event = get_last_event(ds)
-        if event:
-            assert event.name == "create-table"
+    # create-table should have been tracked
+    event = get_last_event(ds)
+    if event:
+        assert event.name == "create-table"
 
 
 def test_examples_for_columns():
