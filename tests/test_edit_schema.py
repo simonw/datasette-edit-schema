@@ -1091,3 +1091,65 @@ async def test_add_remove_index(
         for index in indexes
         if "sqlite_autoindex" not in index.name
     ] == expected_indexes
+
+
+@pytest.mark.asyncio
+async def test_database_and_table_level_permissions(tmp_path):
+    marketing_path = str(tmp_path / "marketing.db")
+    sales_path = str(tmp_path / "sales.db")
+    marketing_db = sqlite_utils.Database(marketing_path)
+    marketing_db["one"].insert({"id": 1}, pk="id")
+    sales_db = sqlite_utils.Database(sales_path)
+    sales_db["notes"].insert({"id": 1, "note": "Hello"}, pk="id")
+    sales_db["not_allowed"].insert({"id": 1}, pk="id")
+
+    ds = Datasette(
+        [marketing_path, sales_path],
+        config={
+            "databases": {
+                "marketing": {
+                    "permissions": {
+                        "create-table": {"id": "pelican"},
+                        "drop-table": {"id": "pelican"},
+                        "alter-table": {"id": "pelican"},
+                    }
+                },
+                "sales": {
+                    "tables": {
+                        "notes": {"permissions": {"alter-table": {"id": "pelican"}}}
+                    }
+                },
+            }
+        },
+    )
+
+    pelican_cookies = {"ds_actor": ds.sign({"a": {"id": "pelican"}}, "actor")}
+    walrus_cookies = {"ds_actor": ds.sign({"a": {"id": "walrus"}}, "actor")}
+
+    async def pelican_can_see(path):
+        response = await ds.client.get(path, cookies=pelican_cookies)
+        return response if response.status_code == 200 else None
+
+    async def walrus_can_see(path):
+        response = await ds.client.get(path, cookies=walrus_cookies)
+        return response if response.status_code == 200 else None
+
+    assert await pelican_can_see("/-/edit-schema/marketing/one")
+    assert not await walrus_can_see("/-/edit-schema/marketing/one")
+
+    # pelican cannot edit sales/not_allowed
+    assert not await pelican_can_see("/-/edit-schema/sales/not_allowed")
+    assert not await walrus_can_see("/-/edit-schema/sales/not_allowed")
+
+    # pelican can edit notes - but not drop or rename it
+    response = await pelican_can_see("/-/edit-schema/sales/notes")
+    assert response
+    assert '<input type="submit" value="Add column">' in response.text
+    assert 'value="Drop this table">' not in response.text
+    assert ' <input type="submit" value="Rename">' not in response.text
+
+    # But they can drop table or rename table in marketing/one
+    response2 = await pelican_can_see("/-/edit-schema/marketing/one")
+    assert response2
+    assert 'value="Drop this table">' in response2.text
+    assert ' <input type="submit" value="Rename">' in response2.text

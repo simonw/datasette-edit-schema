@@ -74,6 +74,14 @@ async def can_alter_table(datasette, actor, database, table):
     return False
 
 
+async def can_rename_table(datasette, actor, database, table):
+    if not await can_drop_table(datasette, actor, database, table):
+        return False
+    if not await can_create_table(datasette, actor, database):
+        return False
+    return True
+
+
 async def can_drop_table(datasette, actor, database, table):
     if await datasette.permission_allowed(
         actor, "edit-schema", resource=database, default=False
@@ -606,6 +614,9 @@ async def edit_schema_table(request, datasette):
                 "can_drop_table": await can_drop_table(
                     datasette, request.actor, database_name, table
                 ),
+                "can_rename_table": await can_rename_table(
+                    datasette, request.actor, database_name, table
+                ),
             },
             request=request,
         )
@@ -695,6 +706,15 @@ async def rename_table(request, datasette, database, table, formdata):
         datasette.add_message(
             request,
             "A table called '{}' already exists".format(new_name),
+            datasette.ERROR,
+        )
+        return redirect
+
+    # User must have drop-table permission on old table and create-table on new table
+    if not await can_rename_table(datasette, request.actor, database, table):
+        datasette.add_message(
+            request,
+            "Permission denied to rename table '{}'".format(table),
             datasette.ERROR,
         )
         return redirect

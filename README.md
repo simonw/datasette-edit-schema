@@ -48,11 +48,33 @@ These permission checks will call the `permission_allowed()` plugin hook with th
 - `actor` will be the currently authenticated actor - usually a dictionary
 - `resource` will be the string name of the database
 
-You can instead use more finely-grained permissions.
+You can instead use more finely-grained permissions from the default Datasette permissions collection:
 
 - `create-table` allows users to create a new table. The `resource` will be the name of the database.
 - `drop-table` allows users to drop a table. The `resource` will be a tuple of `(database_name, table_name)`.
 - `alter-table` allows users to alter a table. The `resource` will be a tuple of `(database_name, table_name)`.
+
+To rename a table a user must have both `drop-table` permission for that table and `create-table` permission for that database.
+
+For example, to configure Datasette to allow the user with ID `pelican` to create, alter and drop tables in the `marketing` database and to alter just the `notes` table in the `sales` database, you could use the following configuration:
+
+```yaml
+databases:
+  marketing:
+    permissions:
+      create-table:
+        id: pelican
+      drop-table:
+        id: pelican
+      alter-table:
+        id: pelican
+  sales:
+    tables:
+      notes:
+        permissions:
+          alter-table:
+            id: pelican
+```
 
 ## Events
 

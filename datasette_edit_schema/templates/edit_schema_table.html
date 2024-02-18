@@ -88,6 +88,7 @@ html body label {
 {% block content %}
 <h1>Edit table <a href="{{ base_url }}{{ database.name|quote_plus }}/{{ table|quote_plus }}">{{ database.name }}/{{ table }}</a></h1>
 
+{% if can_rename_table %}
 <h2>Rename table</h2>
 
 <form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
@@ -96,6 +97,7 @@ html body label {
     <input type="hidden" name="rename_table" value="1">
     <input type="submit" value="Rename">
 </form>
+{% endif %}
 
 <form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ table|quote_plus }}" method="post">
 <h2>Change existing columns</h2>
