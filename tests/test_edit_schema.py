@@ -343,6 +343,7 @@ async def test_transform_table(
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     db = sqlite_utils.Database(db_path)
     table = db["creatures"]
+    before_schema = table.schema
     assert table.columns_dict == {"name": str, "description": str}
     csrftoken = (
         await ds.client.get("/-/edit-schema/data/creatures", cookies=cookies)
@@ -361,6 +362,11 @@ async def test_transform_table(
     assert [c.name for c in table.columns] == expected_order
     assert len(messages) == 1
     assert messages[0][0] == expected_message
+    # Should have tracked an event
+    event = get_last_event(ds)
+    assert event.name == "alter-table"
+    assert event.before_schema == before_schema
+    assert event.after_schema == table.schema
 
 
 @pytest.mark.asyncio
