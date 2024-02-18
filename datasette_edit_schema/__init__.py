@@ -711,7 +711,7 @@ async def rename_table(request, datasette, database, table, formdata):
         return redirect
 
     # User must have drop-table permission on old table and create-table on new table
-    if not await can_rename_table(datasette, request.actor, database, table):
+    if not await can_rename_table(datasette, request.actor, database.name, table):
         datasette.add_message(
             request,
             "Permission denied to rename table '{}'".format(table),
