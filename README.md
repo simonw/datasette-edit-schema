@@ -54,6 +54,10 @@ You can instead use more finely-grained permissions.
 - `drop-table` allows users to drop a table. The `resource` will be a tuple of `(database_name, table_name)`.
 - `alter-table` allows users to alter a table. The `resource` will be a tuple of `(database_name, table_name)`.
 
+## Events
+
+This plugin fires `create-table`, `alter-table` and `drop-table` events when tables are modified, using the [Datasette Events](https://docs.datasette.io/en/latest/events.html) system introduced in [Datasette 1.0a8](https://docs.datasette.io/en/latest/changelog.html#a8-2024-02-07).
+
 ## Screenshot
 
 ![datasette-edit-schema interface](https://raw.githubusercontent.com/simonw/datasette-edit-schema/main/datasette-edit-schema.png)
