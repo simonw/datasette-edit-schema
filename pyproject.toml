@@ -1,0 +1,37 @@
+[project]
+name = "datasette-edit-schema"
+version = "0.8a0"
+description = "Datasette plugin for modifying table schemas"
+readme = "README.md"
+authors = [{name = "Simon Willison"}]
+license = {text = "Apache-2.0"}
+classifiers=[
+    "Framework :: Datasette",
+    "License :: OSI Approved :: Apache Software License"
+]
+requires-python = ">=3.8"
+dependencies = [
+    "datasette>=1.0a9",
+    "sqlite-utils>=3.35",
+]
+
+[project.urls]
+Homepage = "https://datasette.io/plugins/datasette-edit-schema"
+Changelog = "https://github.com/simonw/datasette-edit-schema/releases"
+Issues = "https://github.com/simonw/datasette-edit-schema/issues"
+CI = "https://github.com/simonw/datasette-edit-schema/actions"
+
+[project.entry-points.datasette]
+edit_schema = "datasette_edit_schema"
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-asyncio", "beautifulsoup4", "html5lib"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+
+[tool.setuptools]
+packages = ["datasette_edit_schema"]
+
+[tool.setuptools.package-data]
+datasette_edit_schema = ["templates/*", "static/*"]
