@@ -43,6 +43,7 @@ def table_actions(datasette, actor, database, table):
                     "/-/edit-schema/{}/{}".format(database, quote_plus(table))
                 ),
                 "label": "Edit table schema",
+                "description": "Rename the table, add and remove columns...",
             }
         ]
 
@@ -106,6 +107,7 @@ def database_actions(datasette, actor, database):
                     "/-/edit-schema/{}/-/create".format(database)
                 ),
                 "label": "Create a table",
+                "description": "Define a new table with specified columns",
             }
         ]
 

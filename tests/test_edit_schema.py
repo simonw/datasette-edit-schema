@@ -62,7 +62,7 @@ async def test_table_actions(permission_plugin, ds, actor_id, should_allow):
         cookies = {"ds_actor": ds.sign({"a": {"id": actor_id}}, "actor")}
     response = await ds.client.get("/data/creatures", cookies=cookies)
     assert response.status_code == 200
-    fragment = '<li><a href="/-/edit-schema/data/creatures">Edit table schema</a></li>'
+    fragment = '<a href="/-/edit-schema/data/creatures">Edit table schema'
     if should_allow:
         # Should have table action
         assert fragment in response.text
