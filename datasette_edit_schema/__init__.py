@@ -555,9 +555,7 @@ async def edit_schema_table(request, datasette):
                 }
             )
             seen.add(
-                "{}:{}".format(
-                    info["foreign_key"].other_table, info["foreign_key"].other_column
-                )
+                (info["foreign_key"].other_table, info["foreign_key"].other_column)
             )
         # Now add suggestions
         for suggested_table, suggested_column in info["suggestions"]:
@@ -574,11 +572,11 @@ async def edit_schema_table(request, datasette):
                         "selected": False,
                     }
                 )
-                seen.add("{}:{}".format(suggested_table, suggested_column))
+                seen.add((suggested_table, suggested_column))
                 info["suggested"] = "{}.{}".format(suggested_table, suggested_column)
         # And the rest
         for rest_table, rest_column in info["options"]:
-            if "{}:{}".format(rest_table, rest_column) not in seen:
+            if (rest_table, rest_column) not in seen:
                 options.append(
                     {
                         "name": "{}.{}".format(rest_table, rest_column),
