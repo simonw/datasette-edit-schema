@@ -216,6 +216,7 @@ async def edit_schema_database(request, datasette):
             {
                 "database": database,
                 "tables": tables,
+                "tilde_encode": tilde_encode,
             },
             request=request,
         )
