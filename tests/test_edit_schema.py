@@ -1,4 +1,5 @@
 from datasette.app import Datasette
+from datasette.utils import tilde_encode
 from datasette_edit_schema.utils import (
     potential_foreign_keys,
     get_primary_keys,
@@ -41,8 +42,9 @@ async def test_csrf_required(db_path):
         ("user_with_no_perms", False),
     ),
 )
+@pytest.mark.parametrize("table", ("creatures", "animal.name/with/slashes"))
 @pytest.mark.asyncio
-async def test_table_actions(permission_plugin, ds, actor_id, should_allow):
+async def test_table_actions(permission_plugin, ds, actor_id, should_allow, table):
     ds._rules_allow = [
         Rule(
             actor_id="user_with_edit_schema",
@@ -60,9 +62,13 @@ async def test_table_actions(permission_plugin, ds, actor_id, should_allow):
     cookies = None
     if actor_id:
         cookies = {"ds_actor": ds.sign({"a": {"id": actor_id}}, "actor")}
-    response = await ds.client.get("/data/creatures", cookies=cookies)
+    response = await ds.client.get(
+        ds.urls.table(database="data", table=table), cookies=cookies
+    )
     assert response.status_code == 200
-    fragment = '<a href="/-/edit-schema/data/creatures">Edit table schema'
+    fragment = '<a href="/-/edit-schema/data/{}">Edit table schema'.format(
+        tilde_encode(table)
+    )
     if should_allow:
         # Should have table action
         assert fragment in response.text
@@ -1065,6 +1071,19 @@ def test_potential_primary_keys_primary_key_only_table():
             "Index dropped: name_unique_index",
             [{"columns": ["name"], "name": "name_index", "unique": 0}],
         ),
+        # Test for table with surprising characters in its name
+        (
+            "animal.name/with/slashes",
+            {"add_index": "1", "add_index_column": "species"},
+            "Index added on species",
+            [
+                {
+                    "name": "idx_animal.name/with/slashes_species",
+                    "columns": ["species"],
+                    "unique": 0,
+                }
+            ],
+        ),
     ),
 )
 async def test_add_remove_index(
@@ -1072,13 +1091,17 @@ async def test_add_remove_index(
 ):
     ds = Datasette([db_path])
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
-    csrftoken = (
-        await ds.client.get("/-/edit-schema/data/{}".format(table), cookies=cookies)
-    ).cookies["ds_csrftoken"]
+    get_response = await ds.client.get(
+        "/-/edit-schema/data/{}".format(tilde_encode(table)), cookies=cookies
+    )
+    assert get_response.status_code == 200
+    csrftoken = get_response.cookies["ds_csrftoken"]
     cookies["ds_csrftoken"] = csrftoken
     post_data["csrftoken"] = csrftoken
     response = await ds.client.post(
-        "/-/edit-schema/data/{}".format(table), cookies=cookies, data=post_data
+        "/-/edit-schema/data/{}".format(tilde_encode(table)),
+        cookies=cookies,
+        data=post_data,
     )
     assert response.status_code == 302
     messages = ds.unsign(response.cookies["ds_messages"], "messages")

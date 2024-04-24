@@ -90,6 +90,21 @@ def db_and_path(tmpdir):
     db["has_indexes"].create_index(
         ["name"], index_name="name_unique_index", unique=True
     )
+    db["animal.name/with/slashes"].insert(
+        {
+            "id": 1,
+            "name": "Sirocco",
+            "species": 582,
+        },
+        pk="id",
+    )
+    db["table.name/with/slashes.categories"].insert(
+        {
+            "id": 582,
+            "name": "Kākāpō",
+        },
+        pk="id",
+    )
 
     return db, path
 

@@ -1,7 +1,7 @@
 from datasette import hookimpl
 from datasette.events import CreateTableEvent, AlterTableEvent, DropTableEvent
 from datasette.utils.asgi import Response, NotFound, Forbidden
-from datasette.utils import sqlite3
+from datasette.utils import sqlite3, tilde_decode, tilde_encode
 from urllib.parse import quote_plus, unquote_plus
 import sqlite_utils
 import textwrap
@@ -40,7 +40,7 @@ def table_actions(datasette, actor, database, table):
         return [
             {
                 "href": datasette.urls.path(
-                    "/-/edit-schema/{}/{}".format(database, quote_plus(table))
+                    "/-/edit-schema/{}/{}".format(database, tilde_encode(table))
                 ),
                 "label": "Edit table schema",
                 "description": "Rename the table, add and remove columns...",
@@ -307,7 +307,7 @@ async def edit_schema_create_table(request, datasette):
 
 
 async def edit_schema_table(request, datasette):
-    table = unquote_plus(request.url_vars["table"])
+    table = tilde_decode(request.url_vars["table"])
     databases = get_databases(datasette)
     database_name = request.url_vars["database"]
 
@@ -619,6 +619,7 @@ async def edit_schema_table(request, datasette):
                 "can_rename_table": await can_rename_table(
                     datasette, request.actor, database_name, table
                 ),
+                "tilde_encode": tilde_encode,
             },
             request=request,
         )
