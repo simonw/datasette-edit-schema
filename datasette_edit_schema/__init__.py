@@ -549,8 +549,8 @@ async def edit_schema_table(request, datasette):
                         info["foreign_key"].other_column,
                     ),
                     "value": "{}.{}".format(
-                        info["foreign_key"].other_table,
-                        info["foreign_key"].other_column,
+                        tilde_encode(info["foreign_key"].other_table),
+                        tilde_encode(info["foreign_key"].other_column),
                     ),
                     "selected": True,
                 }
@@ -569,7 +569,10 @@ async def edit_schema_table(request, datasette):
                         "name": "{}.{} (suggested)".format(
                             suggested_table, suggested_column
                         ),
-                        "value": "{}.{}".format(suggested_table, suggested_column),
+                        "value": "{}.{}".format(
+                            tilde_encode(suggested_table),
+                            tilde_encode(suggested_column),
+                        ),
                         "selected": False,
                     }
                 )
@@ -581,7 +584,9 @@ async def edit_schema_table(request, datasette):
                 options.append(
                     {
                         "name": "{}.{}".format(rest_table, rest_column),
-                        "value": "{}.{}".format(rest_table, rest_column),
+                        "value": "{}.{}".format(
+                            tilde_encode(rest_table), tilde_encode(rest_column)
+                        ),
                         "selected": False,
                     }
                 )
@@ -782,8 +787,8 @@ async def update_foreign_keys(request, datasette, database, table, formdata):
         fks.append(
             (
                 column,
-                split[0],
-                split[1],
+                tilde_decode(split[0]),
+                tilde_decode(split[1]),
             )
         )
 

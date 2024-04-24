@@ -820,6 +820,24 @@ async def test_edit_form_for_empty_table(db_path):
             ["id"],
             "Foreign keys updated to distraction_id → cities.id",
         ),
+        # Same again for tables with weird characters in their names
+        (
+            "animal.name/with/slashes",
+            {
+                "action": "update_foreign_keys",
+                "fk.species": "table~2Ename~2Fwith~2Fslashes~2Ecategories.id",
+            },
+            [
+                (
+                    "animal.name/with/slashes",
+                    "species",
+                    "table.name/with/slashes.categories",
+                    "id",
+                )
+            ],
+            ["id"],
+            "Foreign keys updated to species → table.name/with/slashes.categories.id",
+        ),
         # Change primary key in a way that works
         (
             "museums",
@@ -845,13 +863,13 @@ async def test_edit_keys(
     # Grab a csrftoken
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     csrftoken_r = await ds.client.get(
-        "/-/edit-schema/data/{}".format(table), cookies=cookies
+        "/-/edit-schema/data/{}".format(tilde_encode(table)), cookies=cookies
     )
     csrftoken = csrftoken_r.cookies["ds_csrftoken"]
     cookies["ds_csrftoken"] = csrftoken
     post_data["csrftoken"] = csrftoken
     response = await ds.client.post(
-        "/-/edit-schema/data/{}".format(table),
+        "/-/edit-schema/data/{}".format(tilde_encode(table)),
         data=post_data,
         cookies=cookies,
     )
