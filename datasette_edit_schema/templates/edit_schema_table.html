@@ -14,13 +14,14 @@ html body input[type="search"] {
     font-size: 1em;
     font-family: Helvetica, sans-serif;
 }
-body form .button-red {
-    background-color: red;
-    border-color: red;
-}
-body form .button-small {
+input[type=submit].button-small {
     font-size: 0.7em;
 }
+form input[type=submit].button-red {
+    background: red;
+    border-color: rgb(171, 112, 112);
+}
+
 select {
     border: 1px solid #ccc;
     border-radius: 3px;
@@ -91,7 +92,7 @@ html body label {
 {% if can_rename_table %}
 <h2>Rename table</h2>
 
-<form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
+<form class="core" action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
     <p><label>New name&nbsp; <input type="text" name="name"></label>
     <input type="hidden" name="rename_table" value="1">
@@ -99,7 +100,7 @@ html body label {
 </form>
 {% endif %}
 
-<form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
+<form class="core" action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
 <h2>Change existing columns</h2>
 <ul class="sortable-columns">
 {% for column in columns %}
@@ -134,7 +135,7 @@ html body label {
 
 <h2>Add a column</h2>
 
-<form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
+<form class="core" action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
     <input type="hidden" name="add_column" value="1">
     <p><label>Name &nbsp;<input type="text" name="name"></label>
@@ -156,7 +157,7 @@ table.foreign-key-options td {
 }
 </style>
 
-<form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
+<form class="core" action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
     <input type="hidden" name="action" value="update_foreign_keys">
     <table class="foreign-key-options">
@@ -180,7 +181,7 @@ table.foreign-key-options td {
 
     <p>The primary key column uniquely identifies each row in the table.</p>
 
-    <form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
+    <form class="core" action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
         <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
         <input type="hidden" name="action" value="update_primary_key">
         <label for="primary_key">Primary key column &nbsp;</label>
@@ -201,7 +202,7 @@ table.foreign-key-options td {
 
     <p>Indexes can speed up filter and sort operations against indexed columns.</p>
 
-    <form action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
+    <form class="core" action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
         <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
         {% if non_primary_key_columns %}
             <p><label for="id_add_index_column">
@@ -233,7 +234,7 @@ table.foreign-key-options td {
 {% if can_drop_table %}
     <h2>Drop table</h2>
 
-    <form id="drop-table-form" action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
+    <form class="core" id="drop-table-form" action="{{ base_url }}-/edit-schema/{{ database.name|quote_plus }}/{{ tilde_encode(table) }}" method="post">
         <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
         <input type="hidden" name="drop_table" value="1">
         <input type="submit" class="button-red" value="Drop this table">
