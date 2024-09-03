@@ -1,6 +1,6 @@
 [project]
 name = "datasette-edit-schema"
-version = "0.8a2"
+version = "0.8a3"
 description = "Datasette plugin for modifying table schemas"
 readme = "README.md"
 authors = [{name = "Simon Willison"}]
