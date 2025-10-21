@@ -1,6 +1,6 @@
 [project]
 name = "datasette-edit-schema"
-version = "0.8a3"
+version = "0.8a4"
 description = "Datasette plugin for modifying table schemas"
 readme = "README.md"
 authors = [{name = "Simon Willison"}]
@@ -11,7 +11,7 @@ classifiers=[
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "datasette>=1.0a13",
+    "datasette==1.0a19",
     "sqlite-utils>=3.35",
 ]
 
