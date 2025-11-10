@@ -22,9 +22,15 @@ def get_last_event(datasette):
         return events[-1]
 
 
+def root_datasette(*args, **kwargs):
+    ds = Datasette(*args, **kwargs)
+    ds.root_enabled = True
+    return ds
+
+
 @pytest.mark.asyncio
 async def test_csrf_required(db_path):
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     response = await ds.client.post(
         "/edit-schema/data/creatures",
         data={"drop_table": "1"},
@@ -78,7 +84,7 @@ async def test_table_actions(permission_plugin, ds, actor_id, should_allow, tabl
 
 @pytest.mark.asyncio
 async def test_post_without_operation_raises_error(db_path):
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     # Get a csrftoken
     csrftoken = (
@@ -104,7 +110,7 @@ async def test_post_without_operation_raises_error(db_path):
     ),
 )
 async def test_drop_table(permission_plugin, db_path, actor_id, should_allow):
-    ds = Datasette([db_path], pdb=True)
+    ds = root_datasette([db_path], pdb=True)
     ds._rules_allow = [
         Rule(
             actor_id="user_with_edit_schema",
@@ -174,7 +180,7 @@ async def test_drop_table(permission_plugin, db_path, actor_id, should_allow):
     [("text", str), ("integer", int), ("real", float), ("blob", bytes)],
 )
 async def test_add_column(db_path, col_type, expected_type):
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     db = sqlite_utils.Database(db_path)
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     table = db["creatures"]
@@ -218,7 +224,7 @@ async def test_add_column(db_path, col_type, expected_type):
     ],
 )
 async def test_add_column_errors(db_path, name, type, expected_error):
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     csrftoken = (
         await ds.client.get("/-/edit-schema/data/creatures", cookies=cookies)
@@ -345,7 +351,7 @@ async def test_add_column_errors(db_path, name, type, expected_error):
 async def test_transform_table(
     db_path, action, post_data, expected_columns_dict, expected_order, expected_message
 ):
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     db = sqlite_utils.Database(db_path)
     table = db["creatures"]
@@ -378,7 +384,7 @@ async def test_transform_table(
 @pytest.mark.asyncio
 async def test_drop_column_from_table_that_is_part_of_a_view(db_path):
     # https://github.com/simonw/datasette-edit-schema/issues/35
-    ds = Datasette([db_path], pdb=True)
+    ds = root_datasette([db_path], pdb=True)
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     db = sqlite_utils.Database(db_path)
     db.create_view("creatures_view", "select * from creatures")
@@ -407,7 +413,7 @@ async def test_drop_column_from_table_that_is_part_of_a_view(db_path):
 
 @pytest.mark.asyncio
 async def test_static_assets(db_path):
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     for path in (
         "/-/static-plugins/datasette-edit-schema/draggable.1.0.0-beta.11.bundle.min.js",
     ):
@@ -421,7 +427,7 @@ async def test_static_assets(db_path):
 )
 async def test_permission_edit_schema(db_path, path):
     # root user has edit-schema which allows access to all
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     someuser_cookies = {"ds_actor": ds.sign({"a": {"id": "someuser"}}, "actor")}
     root_cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     response = await ds.client.get(path)
@@ -615,7 +621,7 @@ async def test_table_form_contains_schema(permission_plugin, ds):
     ],
 )
 async def test_rename_table(db_path, new_name, should_work, expected_message):
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     csrftoken = (
         await ds.client.get("/-/edit-schema/data/creatures", cookies=cookies)
@@ -674,7 +680,7 @@ async def test_rename_table(db_path, new_name, should_work, expected_message):
     ),
 )
 async def test_breadcrumbs(db_path, path, expected_breadcrumbs):
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     response = await ds.client.get(path, cookies=cookies)
     assert response.status_code == 200
@@ -696,7 +702,7 @@ def test_potential_foreign_keys(db):
 @pytest.mark.asyncio
 async def test_edit_form_shows_suggestions(db_path):
     # Test for suggested foreign keys and primary keys
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     response = await ds.client.get("/-/edit-schema/data/museums", cookies=cookies)
     assert response.status_code == 200
@@ -767,7 +773,7 @@ async def test_edit_form_shows_suggestions(db_path):
 @pytest.mark.asyncio
 async def test_edit_form_for_empty_table(db_path):
     # https://github.com/simonw/datasette-edit-schema/issues/38
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     response = await ds.client.get("/-/edit-schema/data/empty_table", cookies=cookies)
     assert response.status_code == 200
@@ -859,7 +865,7 @@ async def test_edit_form_for_empty_table(db_path):
 async def test_edit_keys(
     db_path, table, post_data, expected_fks, expected_pk, expected_message
 ):
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     # Grab a csrftoken
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     csrftoken_r = await ds.client.get(
@@ -951,7 +957,7 @@ def get_options(soup, name):
     ),
 )
 async def test_create_table(db_path, post_data, expected_message, expected_schema):
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     csrftoken_r = await ds.client.get("/-/edit-schema/data/-/create", cookies=cookies)
     csrftoken = csrftoken_r.cookies["ds_csrftoken"]
@@ -1107,7 +1113,7 @@ def test_potential_primary_keys_primary_key_only_table():
 async def test_add_remove_index(
     db_path, table, post_data, expected_message, expected_indexes
 ):
-    ds = Datasette([db_path])
+    ds = root_datasette([db_path])
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     get_response = await ds.client.get(
         "/-/edit-schema/data/{}".format(tilde_encode(table)), cookies=cookies
@@ -1144,7 +1150,7 @@ async def test_database_and_table_level_permissions(tmp_path):
     sales_db["notes"].insert({"id": 1, "note": "Hello"}, pk="id")
     sales_db["not_allowed"].insert({"id": 1}, pk="id")
 
-    ds = Datasette(
+    ds = root_datasette(
         [marketing_path, sales_path],
         config={
             "databases": {

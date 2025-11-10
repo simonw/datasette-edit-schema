@@ -38,21 +38,15 @@ By default only [the root actor](https://datasette.readthedocs.io/en/stable/auth
 
 ## Permissions
 
-The `edit-schema` permission provides access to all functionality.
+This plugin registers an `edit-schema` action that applies to databases. Granting that action gives an actor access to every feature in the UI. Instances launched with `datasette --root` automatically allow the signed-in root actor to perform this action.
 
-You can use permission plugins such as [datasette-permissions-sql](https://github.com/simonw/datasette-permissions-sql) to grant additional access to the write interface.
+All permission checks now call `datasette.allowed()` with `DatabaseResource` or `TableResource` objects, so they work seamlessly with Datasette’s `permission_resources_sql()` hook and configuration-based permission rules. Plugins such as [datasette-permissions-sql](https://github.com/simonw/datasette-permissions-sql) can continue to be used to grant access to the write interface.
 
-These permission checks will call the `permission_allowed()` plugin hook with three arguments:
+For finer control you can combine Datasette’s built-in actions:
 
-- `action` will be the string `"edit-schema"`
-- `actor` will be the currently authenticated actor - usually a dictionary
-- `resource` will be the string name of the database
-
-You can instead use more finely-grained permissions from the default Datasette permissions collection:
-
-- `create-table` allows users to create a new table. The `resource` will be the name of the database.
-- `drop-table` allows users to drop a table. The `resource` will be a tuple of `(database_name, table_name)`.
-- `alter-table` allows users to alter a table. The `resource` will be a tuple of `(database_name, table_name)`.
+- `create-table` allows users to create a new table (database-level resource).
+- `drop-table` allows users to drop a table (table-level resource).
+- `alter-table` allows users to alter a table (table-level resource).
 
 To rename a table a user must have both `drop-table` permission for that table and `create-table` permission for that database.
 

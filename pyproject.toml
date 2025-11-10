@@ -4,14 +4,13 @@ version = "0.8a4"
 description = "Datasette plugin for modifying table schemas"
 readme = "README.md"
 authors = [{name = "Simon Willison"}]
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
 classifiers=[
-    "Framework :: Datasette",
-    "License :: OSI Approved :: Apache Software License"
+    "Framework :: Datasette"
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
-    "datasette==1.0a19",
+    "datasette>=1.0a21",
     "sqlite-utils>=3.35",
 ]
 

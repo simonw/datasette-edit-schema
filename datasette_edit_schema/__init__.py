@@ -1,5 +1,7 @@
 from datasette import hookimpl
 from datasette.events import CreateTableEvent, AlterTableEvent, DropTableEvent
+from datasette.permissions import Action
+from datasette.resources import DatabaseResource, TableResource
 from datasette.utils.asgi import Response, NotFound, Forbidden
 from datasette.utils import sqlite3, tilde_decode, tilde_encode
 from urllib.parse import quote_plus, unquote_plus
@@ -22,14 +24,14 @@ FOREIGN_KEY_DETECTION_LIMIT = 10_000
 
 
 @hookimpl
-def permission_allowed(actor, action, resource):
-    if (
-        action == "edit-schema"
-        and actor
-        and actor.get("id") == "root"
-        and resource != "_internal"
-    ):
-        return True
+def register_actions(datasette):
+    return [
+        Action(
+            name="edit-schema",
+            description="Edit database schemas",
+            resource_class=DatabaseResource,
+        )
+    ]
 
 
 @hookimpl
@@ -51,25 +53,36 @@ def table_actions(datasette, actor, database, table):
 
 
 async def can_create_table(datasette, actor, database):
-    if await datasette.permission_allowed(
-        actor, "edit-schema", resource=database, default=False
+    database_resource = DatabaseResource(database)
+    if await datasette.allowed(
+        actor=actor,
+        action="edit-schema",
+        resource=database_resource,
     ):
         return True
     # Or maybe they have create-table
-    if await datasette.permission_allowed(
-        actor, "create-table", resource=database, default=False
+    if await datasette.allowed(
+        actor=actor,
+        action="create-table",
+        resource=database_resource,
     ):
         return True
     return False
 
 
 async def can_alter_table(datasette, actor, database, table):
-    if await datasette.permission_allowed(
-        actor, "edit-schema", resource=database, default=False
+    database_resource = DatabaseResource(database)
+    if await datasette.allowed(
+        actor=actor,
+        action="edit-schema",
+        resource=database_resource,
     ):
         return True
-    if await datasette.permission_allowed(
-        actor, "alter-table", resource=(database, table), default=False
+    table_resource = TableResource(database, table)
+    if await datasette.allowed(
+        actor=actor,
+        action="alter-table",
+        resource=table_resource,
     ):
         return True
     return False
@@ -84,13 +97,19 @@ async def can_rename_table(datasette, actor, database, table):
 
 
 async def can_drop_table(datasette, actor, database, table):
-    if await datasette.permission_allowed(
-        actor, "edit-schema", resource=database, default=False
+    database_resource = DatabaseResource(database)
+    if await datasette.allowed(
+        actor=actor,
+        action="edit-schema",
+        resource=database_resource,
     ):
         return True
     # Or maybe they have drop-table
-    if await datasette.permission_allowed(
-        actor, "drop-table", resource=(database, table), default=False
+    table_resource = TableResource(database, table)
+    if await datasette.allowed(
+        actor=actor,
+        action="drop-table",
+        resource=table_resource,
     ):
         return True
     return False
@@ -148,8 +167,10 @@ def get_databases(datasette):
 
 
 async def check_permissions(datasette, request, database):
-    if not await datasette.permission_allowed(
-        request.actor, "edit-schema", resource=database, default=False
+    if not await datasette.allowed(
+        actor=request.actor,
+        action="edit-schema",
+        resource=DatabaseResource(database),
     ):
         raise Forbidden("Permission denied for edit-schema")
 
@@ -160,8 +181,10 @@ async def edit_schema_index(datasette, request):
     allowed_databases = [
         name
         for name in database_names
-        if await datasette.permission_allowed(
-            request.actor, "edit-schema", resource=name, default=False
+        if await datasette.allowed(
+            actor=request.actor,
+            action="edit-schema",
+            resource=DatabaseResource(name),
         )
     ]
     if not allowed_databases:

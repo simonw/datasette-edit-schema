@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datasette import hookimpl
 from datasette.app import Datasette
+from datasette.permissions import PermissionSQL
 from datasette.plugins import pm
 import pytest
 import sqlite_utils
@@ -121,7 +122,9 @@ def db(db_and_path):
 
 @pytest.fixture
 def ds(db_path):
-    return Datasette([db_path])
+    ds = Datasette([db_path])
+    ds.root_enabled = True
+    return ds
 
 
 @dataclass
@@ -144,26 +147,54 @@ def permission_plugin():
 
         # Use hookimpl and method names to register hooks
         @hookimpl
-        def permission_allowed(self, datasette, actor, action, resource):
+        def permission_resources_sql(self, datasette, actor, action):
             if not actor:
                 return None
-            database_name = None
-            resource_name = None
-            if isinstance(resource, str):
-                database_name = resource
-            elif resource:
-                database_name, resource_name = resource
-            to_match = Rule(
-                actor_id=actor["id"],
-                action=action,
-                database=database_name,
-                resource=resource_name,
+
+            actor_id = actor.get("id")
+            if not actor_id:
+                return None
+
+            def build_sql(rules, *, allow, prefix):
+                selects = []
+                params = {}
+                for idx, rule in enumerate(rules):
+                    if rule.actor_id != actor_id or rule.action != action:
+                        continue
+                    param = f"{prefix}_{idx}"
+                    selects.append(
+                        "SELECT "
+                        f":{param}_parent AS parent, "
+                        f":{param}_child AS child, "
+                        f"{1 if allow else 0} AS allow, "
+                        f":{param}_reason AS reason"
+                    )
+                    params[f"{param}_parent"] = rule.database
+                    params[f"{param}_child"] = rule.resource
+                    params[f"{param}_reason"] = f"{prefix} rule"
+                if not selects:
+                    return None
+                return PermissionSQL(
+                    sql=" UNION ALL ".join(selects),
+                    params=params,
+                )
+
+            results = []
+            allow_sql = build_sql(
+                getattr(datasette, "_rules_allow", []),
+                allow=True,
+                prefix="allow",
             )
-            if to_match in getattr(datasette, "_rules_allow", []):
-                return True
-            elif to_match in getattr(datasette, "_rules_deny", []):
-                return False
-            return None
+            if allow_sql:
+                results.append(allow_sql)
+            deny_sql = build_sql(
+                getattr(datasette, "_rules_deny", []),
+                allow=False,
+                prefix="deny",
+            )
+            if deny_sql:
+                results.append(deny_sql)
+            return results or None
 
     pm.register(PermissionPlugin(), name="undo_permission_plugin")
     yield
